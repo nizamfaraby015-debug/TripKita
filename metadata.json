@@ -1,0 +1,6 @@
+{
+  "name": "TripKita – Online Booking Mobil",
+  "description": "Teman Perjalanan ke Mana Saja. Layanan booking mobil online TripKita untuk perjalanan dalam kota, luar kota, antar jemput, dan paket wisata langsung ke WhatsApp admin.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
