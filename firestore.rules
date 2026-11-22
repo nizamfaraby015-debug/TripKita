@@ -1,0 +1,870 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: tolak seluruh akses secara default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // HELPER PRIMITIVES
+    // =========================================================================
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string
+        && id.size() >= 1
+        && id.size() <= 128
+        && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Bootstrapped Admin (tanpa custom claims, wajib email_verified == true)
+    function isBootstrappedAdmin() {
+      return isEmailVerified()
+        && request.auth.token.email == 'nizamfaraby015@gmail.com';
+    }
+
+    function isAdminDoc() {
+      return isEmailVerified()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || isAdminDoc();
+    }
+
+    function isValidLatLng(coord) {
+      return coord == null
+        || (
+          coord is map
+          && coord.keys().hasAll(['lat', 'lng'])
+          && coord.keys().hasOnly(['lat', 'lng'])
+          && coord.lat is number
+          && coord.lng is number
+          && coord.lat >= -90
+          && coord.lat <= 90
+          && coord.lng >= -180
+          && coord.lng <= 180
+        );
+    }
+
+    function isValidTripDetails(details) {
+      return details is map
+        && details.keys().size() <= 9
+        && details.keys().hasOnly([
+          'waitDuration',
+          'waitMode',
+          'estimatedEndDate',
+          'estimatedEndTime',
+          'returnDate',
+          'returnTime',
+          'returnDestination',
+          'rentalDuration',
+          'usageNeeds'
+        ])
+        && (!('waitDuration' in details) || details.waitDuration == null || (details.waitDuration is string && details.waitDuration.size() <= 80))
+        && (!('waitMode' in details) || details.waitMode == null || details.waitMode in ['TUNGGU_DI_LOKASI', 'JEMPUT_KEMBALI'])
+        && (!('estimatedEndDate' in details) || details.estimatedEndDate == null || (details.estimatedEndDate is string && details.estimatedEndDate.size() <= 10))
+        && (!('estimatedEndTime' in details) || details.estimatedEndTime == null || (details.estimatedEndTime is string && details.estimatedEndTime.size() <= 5))
+        && (!('returnDate' in details) || details.returnDate == null || (details.returnDate is string && details.returnDate.size() <= 10))
+        && (!('returnTime' in details) || details.returnTime == null || (details.returnTime is string && details.returnTime.size() <= 5))
+        && (!('returnDestination' in details) || details.returnDestination == null || (details.returnDestination is string && details.returnDestination.size() <= 300))
+        && (!('rentalDuration' in details) || details.rentalDuration == null || (details.rentalDuration is string && details.rentalDuration.size() <= 80))
+        && (!('usageNeeds' in details) || details.usageNeeds == null || (details.usageNeeds is string && details.usageNeeds.size() <= 500));
+    }
+
+    function isValidAssignmentHistoryList(history) {
+      return history is list
+        && history.size() <= 50
+        && (
+          history.size() == 0
+          || (
+            history[0] is map
+            && history[0].keys().hasAll(['timestamp', 'action', 'partnerId', 'partnerName', 'status'])
+            && history[0].keys().hasOnly(['timestamp', 'action', 'partnerId', 'partnerName', 'status', 'note'])
+            && history[0].timestamp is string
+            && history[0].timestamp.size() <= 40
+            && history[0].action is string
+            && history[0].action.size() <= 300
+            && history[0].status in ['MENUNGGU_MITRA', 'DITAWARKAN', 'DITERIMA', 'DITOLAK', 'DITUGASKAN', 'SELESAI']
+          )
+        );
+    }
+
+    function isValidBookingSchema(data) {
+      return data.keys().hasAll([
+          'bookingId',
+          'bookingCode',
+          'tripType',
+          'tripDetails',
+          'customerName',
+          'customerPhone',
+          'pickupAddress',
+          'destinationAddress',
+          'pickupCoordinates',
+          'destinationCoordinates',
+          'travelDate',
+          'travelTime',
+          'passengerCount',
+          'distanceKm',
+          'estimatedDuration',
+          'customerNotes',
+          'bookingStatus',
+          'paymentStatus',
+          'assignedPartnerId',
+          'assignedPartnerName',
+          'assignmentStatus',
+          'assignmentHistory',
+          'customerUid',
+          'internalEstimatedFareRp',
+          'agreedFareRp',
+          'tollFeeRp',
+          'parkingFeeRp',
+          'extraFeeRp',
+          'totalCashDueRp',
+          'cashPaymentStatus',
+          'partnerConfirmedCash',
+          'commissionRate',
+          'commissionAmountRp',
+          'adminConfirmedPartnerReady',
+          'createdAt',
+          'updatedAt',
+          'source'
+        ])
+        && data.keys().hasOnly([
+          'bookingId',
+          'bookingCode',
+          'tripType',
+          'tripDetails',
+          'customerName',
+          'customerPhone',
+          'pickupAddress',
+          'destinationAddress',
+          'pickupCoordinates',
+          'destinationCoordinates',
+          'travelDate',
+          'travelTime',
+          'passengerCount',
+          'distanceKm',
+          'estimatedDuration',
+          'customerNotes',
+          'bookingStatus',
+          'paymentStatus',
+          'assignedPartnerId',
+          'assignedPartnerName',
+          'assignmentStatus',
+          'assignmentHistory',
+          'customerUid',
+          'internalEstimatedFareRp',
+          'agreedFareRp',
+          'tollFeeRp',
+          'parkingFeeRp',
+          'extraFeeRp',
+          'totalCashDueRp',
+          'cashPaymentStatus',
+          'partnerConfirmedCash',
+          'commissionRate',
+          'commissionAmountRp',
+          'adminConfirmedPartnerReady',
+          'cancellationReason',
+          'createdAt',
+          'updatedAt',
+          'source'
+        ])
+        && data.bookingId is string
+        && data.bookingId.size() >= 4
+        && data.bookingId.size() <= 128
+        && data.bookingId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.bookingCode is string
+        && data.bookingCode.size() >= 5
+        && data.bookingCode.size() <= 32
+        && data.bookingCode.matches('^TK-[A-Z0-9-]+$')
+        && data.tripType in ['SEKALI_JALAN', 'ANTAR_TUNGGU', 'PULANG_PERGI', 'CARTER', 'RENTAL_SOPIR']
+        && isValidTripDetails(data.tripDetails)
+        && data.customerName is string
+        && data.customerName.size() >= 1
+        && data.customerName.size() <= 120
+        && data.customerPhone is string
+        && data.customerPhone.size() >= 8
+        && data.customerPhone.size() <= 24
+        && data.pickupAddress is string
+        && data.pickupAddress.size() >= 1
+        && data.pickupAddress.size() <= 300
+        && data.destinationAddress is string
+        && data.destinationAddress.size() >= 1
+        && data.destinationAddress.size() <= 300
+        && isValidLatLng(data.pickupCoordinates)
+        && isValidLatLng(data.destinationCoordinates)
+        && data.travelDate is string
+        && data.travelDate.size() == 10
+        && data.travelDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.travelTime is string
+        && data.travelTime.size() == 5
+        && data.travelTime.matches('^\\d{2}:\\d{2}$')
+        && data.passengerCount is int
+        && data.passengerCount >= 1
+        && data.passengerCount <= 50
+        && (data.distanceKm == null || (data.distanceKm is number && data.distanceKm >= 0 && data.distanceKm <= 5000))
+        && (data.estimatedDuration == null || (data.estimatedDuration is string && data.estimatedDuration.size() >= 1 && data.estimatedDuration.size() <= 64))
+        && data.customerNotes is string
+        && data.customerNotes.size() <= 500
+        && data.bookingStatus in ['NEW', 'CONFIRMED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']
+        && data.paymentStatus in ['UNPAID', 'PAID', 'REFUNDED']
+        && (data.assignedPartnerId == null || (data.assignedPartnerId is string && isValidId(data.assignedPartnerId)))
+        && (data.assignedPartnerName == null || (data.assignedPartnerName is string && data.assignedPartnerName.size() <= 120))
+        && data.assignmentStatus in ['MENUNGGU_MITRA', 'DITAWARKAN', 'DITERIMA', 'DITOLAK', 'DITUGASKAN', 'SELESAI']
+        && isValidAssignmentHistoryList(data.assignmentHistory)
+        && (data.customerUid == null || (data.customerUid is string && isValidId(data.customerUid)))
+        && data.internalEstimatedFareRp is number
+        && data.internalEstimatedFareRp >= 0
+        && data.internalEstimatedFareRp <= 100000000
+        && data.agreedFareRp is number
+        && data.agreedFareRp >= 0
+        && data.agreedFareRp <= 100000000
+        && data.tollFeeRp is number
+        && data.tollFeeRp >= 0
+        && data.tollFeeRp <= 50000000
+        && data.parkingFeeRp is number
+        && data.parkingFeeRp >= 0
+        && data.parkingFeeRp <= 50000000
+        && data.extraFeeRp is number
+        && data.extraFeeRp >= 0
+        && data.extraFeeRp <= 50000000
+        && data.totalCashDueRp is number
+        && data.totalCashDueRp >= 0
+        && data.totalCashDueRp <= 200000000
+        && data.cashPaymentStatus in ['BELUM_DIBAYAR', 'PERLU_VERIFIKASI', 'DIBAYAR']
+        && data.partnerConfirmedCash is bool
+        && data.commissionRate is number
+        && data.commissionRate >= 0
+        && data.commissionRate <= 1
+        && data.commissionAmountRp is number
+        && data.commissionAmountRp >= 0
+        && data.commissionAmountRp <= 50000000
+        && data.adminConfirmedPartnerReady is bool
+        && (!('cancellationReason' in data) || data.cancellationReason == null || (data.cancellationReason is string && data.cancellationReason.size() <= 300))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.source in ['WEB_BOOKING_FORM', 'IMPORT_CSV', 'SEED_DEMO'];
+    }
+
+    function isValidPublicBookingCreate(bookingId, data) {
+      return isValidBookingSchema(data)
+        && data.bookingId == bookingId
+        && data.bookingStatus == 'NEW'
+        && data.paymentStatus == 'UNPAID'
+        && data.assignedPartnerId == null
+        && data.assignedPartnerName == null
+        && data.assignmentStatus == 'MENUNGGU_MITRA'
+        && data.assignmentHistory.size() <= 1
+        && data.agreedFareRp == 0
+        && data.tollFeeRp == 0
+        && data.parkingFeeRp == 0
+        && data.extraFeeRp == 0
+        && data.totalCashDueRp == 0
+        && data.cashPaymentStatus == 'BELUM_DIBAYAR'
+        && data.partnerConfirmedCash == false
+        && data.commissionAmountRp == 0
+        && data.adminConfirmedPartnerReady == false
+        && data.source == 'WEB_BOOKING_FORM'
+        && (
+          (request.auth == null && data.customerUid == null)
+          || (request.auth != null && (data.customerUid == null || data.customerUid == request.auth.uid))
+        )
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isValidPartnerDocuments(docs) {
+      return docs is map
+        && docs.keys().hasAll(['simFileName', 'stnkFileName', 'vehiclePhotoFileName', 'storageStatus'])
+        && docs.keys().hasOnly(['simFileName', 'stnkFileName', 'vehiclePhotoFileName', 'storageStatus'])
+        && (docs.simFileName == null || (docs.simFileName is string && docs.simFileName.size() <= 80))
+        && (docs.stnkFileName == null || (docs.stnkFileName is string && docs.stnkFileName.size() <= 80))
+        && (docs.vehiclePhotoFileName == null || (docs.vehiclePhotoFileName is string && docs.vehiclePhotoFileName.size() <= 80))
+        && docs.storageStatus == 'DEMO_NOT_UPLOADED';
+    }
+
+    function isValidPartnerServicesList(services) {
+      return services is list
+        && services.size() >= 1
+        && services.size() <= 6
+        && services[0] is string
+        && services[0].size() <= 40
+        && services.hasOnly([
+          'MOBIL_PENUMPANG',
+          'PICKUP',
+          'ANTAR_JEMPUT',
+          'CARTER_KENDARAAN',
+          'RENTAL_DENGAN_SOPIR',
+          'LAYANAN_LAINNYA'
+        ]);
+    }
+
+    function isValidPartnerSchema(data) {
+      return data.keys().hasAll([
+          'id',
+          'registrationNumber',
+          'status',
+          'fullName',
+          'whatsapp',
+          'email',
+          'address',
+          'district',
+          'regency',
+          'partnershipType',
+          'services',
+          'vehicleBrandType',
+          'vehicleYear',
+          'licensePlate',
+          'passengerCapacity',
+          'operationalArea',
+          'availability',
+          'documents',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'registrationNumber',
+          'status',
+          'fullName',
+          'whatsapp',
+          'email',
+          'address',
+          'district',
+          'regency',
+          'partnershipType',
+          'services',
+          'otherServiceNote',
+          'vehicleBrandType',
+          'vehicleYear',
+          'licensePlate',
+          'passengerCapacity',
+          'operationalArea',
+          'availability',
+          'documents',
+          'rejectionReason',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.registrationNumber is string
+        && data.registrationNumber.size() >= 6
+        && data.registrationNumber.size() <= 32
+        && data.registrationNumber.matches('^MTR-[A-Z0-9-]+$')
+        && data.status in ['MENUNGGU_VERIFIKASI', 'DISETUJUI', 'DITOLAK']
+        && data.fullName is string
+        && data.fullName.size() >= 1
+        && data.fullName.size() <= 120
+        && data.whatsapp is string
+        && data.whatsapp.size() >= 8
+        && data.whatsapp.size() <= 24
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 160
+        && data.address is string
+        && data.address.size() >= 1
+        && data.address.size() <= 300
+        && data.district is string
+        && data.district.size() >= 1
+        && data.district.size() <= 100
+        && data.regency is string
+        && data.regency.size() >= 1
+        && data.regency.size() <= 100
+        && data.partnershipType in ['PEMILIK_KENDARAAN', 'PENGEMUDI', 'PEMILIK_DAN_PENGEMUDI']
+        && isValidPartnerServicesList(data.services)
+        && (!('otherServiceNote' in data) || data.otherServiceNote == null || (data.otherServiceNote is string && data.otherServiceNote.size() <= 200))
+        && data.vehicleBrandType is string
+        && data.vehicleBrandType.size() >= 1
+        && data.vehicleBrandType.size() <= 120
+        && data.vehicleYear is string
+        && data.vehicleYear.size() == 4
+        && data.vehicleYear.matches('^\\d{4}$')
+        && data.licensePlate is string
+        && data.licensePlate.size() >= 2
+        && data.licensePlate.size() <= 20
+        && data.passengerCapacity is int
+        && data.passengerCapacity >= 1
+        && data.passengerCapacity <= 50
+        && data.operationalArea is string
+        && data.operationalArea.size() >= 1
+        && data.operationalArea.size() <= 200
+        && data.availability in ['TERSEDIA', 'TERJADWAL', 'TIDAK_TERSEDIA']
+        && isValidPartnerDocuments(data.documents)
+        && (!('rejectionReason' in data) || data.rejectionReason == null || (data.rejectionReason is string && data.rejectionReason.size() <= 300))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPartnerStatusSchema(data) {
+      return data.keys().hasAll([
+          'registrationNumber',
+          'status',
+          'partnershipType',
+          'services',
+          'vehicleBrandType',
+          'availability',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'registrationNumber',
+          'status',
+          'partnershipType',
+          'services',
+          'vehicleBrandType',
+          'availability',
+          'rejectionReason',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.registrationNumber is string
+        && data.registrationNumber.size() >= 6
+        && data.registrationNumber.size() <= 32
+        && data.registrationNumber.matches('^MTR-[A-Z0-9-]+$')
+        && data.status in ['MENUNGGU_VERIFIKASI', 'DISETUJUI', 'DITOLAK']
+        && data.partnershipType in ['PEMILIK_KENDARAAN', 'PENGEMUDI', 'PEMILIK_DAN_PENGEMUDI']
+        && isValidPartnerServicesList(data.services)
+        && data.vehicleBrandType is string
+        && data.vehicleBrandType.size() >= 1
+        && data.vehicleBrandType.size() <= 120
+        && data.availability in ['TERSEDIA', 'TERJADWAL', 'TIDAK_TERSEDIA']
+        && (!('rejectionReason' in data) || data.rejectionReason == null || (data.rejectionReason is string && data.rejectionReason.size() <= 300))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWeeklyDepositSchema(data) {
+      return data.keys().hasAll([
+          'depositId',
+          'partnerId',
+          'partnerName',
+          'partnerWhatsapp',
+          'periodLabel',
+          'periodStart',
+          'periodEnd',
+          'dueDate',
+          'bookingCodes',
+          'totalServiceFareRp',
+          'commissionRatePercent',
+          'totalCommissionRp',
+          'paidAmountRp',
+          'remainingDueRp',
+          'transferProofRef',
+          'transferNote',
+          'status',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'depositId',
+          'partnerId',
+          'partnerName',
+          'partnerWhatsapp',
+          'periodLabel',
+          'periodStart',
+          'periodEnd',
+          'dueDate',
+          'bookingCodes',
+          'totalServiceFareRp',
+          'commissionRatePercent',
+          'totalCommissionRp',
+          'paidAmountRp',
+          'remainingDueRp',
+          'transferProofRef',
+          'transferNote',
+          'status',
+          'verifiedAt',
+          'updatedAt'
+        ])
+        && isValidId(data.depositId)
+        && isValidId(data.partnerId)
+        && data.partnerName is string
+        && data.partnerName.size() >= 1
+        && data.partnerName.size() <= 120
+        && data.partnerWhatsapp is string
+        && data.partnerWhatsapp.size() <= 24
+        && data.periodLabel is string
+        && data.periodLabel.size() >= 1
+        && data.periodLabel.size() <= 120
+        && data.periodStart is string
+        && data.periodStart.size() == 10
+        && data.periodStart.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.periodEnd is string
+        && data.periodEnd.size() == 10
+        && data.periodEnd.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.dueDate is string
+        && data.dueDate.size() == 10
+        && data.dueDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.bookingCodes is list
+        && data.bookingCodes.size() <= 100
+        && (data.bookingCodes.size() == 0 || (data.bookingCodes[0] is string && data.bookingCodes[0].size() <= 32))
+        && data.totalServiceFareRp is number
+        && data.totalServiceFareRp >= 0
+        && data.totalServiceFareRp <= 500000000
+        && data.commissionRatePercent is number
+        && data.commissionRatePercent >= 0
+        && data.commissionRatePercent <= 100
+        && data.totalCommissionRp is number
+        && data.totalCommissionRp >= 0
+        && data.totalCommissionRp <= 100000000
+        && data.paidAmountRp is number
+        && data.paidAmountRp >= 0
+        && data.paidAmountRp <= 100000000
+        && data.remainingDueRp is number
+        && data.remainingDueRp >= 0
+        && data.remainingDueRp <= 100000000
+        && data.transferProofRef is string
+        && data.transferProofRef.size() <= 100
+        && data.transferNote is string
+        && data.transferNote.size() <= 200
+        && data.status in ['BELUM_DIBAYAR', 'PERLU_VERIFIKASI', 'SUDAH_DIVERIFIKASI']
+        && (!('verifiedAt' in data) || data.verifiedAt == null || data.verifiedAt is timestamp)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCommissionSettingsSchema(data) {
+      return data.keys().hasAll([
+          'platformCommissionPercent',
+          'minimumPlatformFeeRp',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'platformCommissionPercent',
+          'minimumPlatformFeeRp',
+          'updatedAt'
+        ])
+        && data.platformCommissionPercent is number
+        && data.platformCommissionPercent == 10
+        && data.minimumPlatformFeeRp is number
+        && data.minimumPlatformFeeRp >= 0
+        && data.minimumPlatformFeeRp <= 10000000
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserCreate(userId, data) {
+      return data.keys().hasAll([
+          'uid',
+          'displayName',
+          'email',
+          'phone',
+          'role',
+          'partnerStatus',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'phone',
+          'role',
+          'partnerStatus',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid == userId
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 120
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 160
+        && data.phone is string
+        && data.phone.size() <= 24
+        && data.role == 'CUSTOMER'
+        && data.partnerStatus == 'NONE'
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isValidUserSchema(data) {
+      return data.keys().hasAll([
+          'uid',
+          'displayName',
+          'email',
+          'phone',
+          'role',
+          'partnerStatus',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'phone',
+          'role',
+          'partnerStatus',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 120
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 160
+        && data.phone is string
+        && data.phone.size() <= 24
+        && data.role in ['CUSTOMER', 'PARTNER', 'ADMIN']
+        && data.partnerStatus in ['NONE', 'PENDING', 'ACTIVE', 'SUSPENDED']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // =========================================================================
+    // KOLEKSI: bookings
+    // =========================================================================
+    match /bookings/{bookingId} {
+      allow get: if isValidId(bookingId) && isEmailVerified() && (
+        isAdmin()
+        || (existing().customerUid != null && existing().customerUid == request.auth.uid)
+      );
+
+      // Zero get()/exists() inside allow list
+      allow list: if isEmailVerified() && (
+        isBootstrappedAdmin()
+        || (resource.data.customerUid != null && resource.data.customerUid == request.auth.uid)
+      );
+
+      allow create: if isValidId(bookingId) && (
+        isValidPublicBookingCreate(bookingId, incoming())
+        || (
+          isAdmin()
+          && isValidBookingSchema(incoming())
+          && incoming().bookingId == bookingId
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+        )
+      );
+
+      allow update: if isValidId(bookingId)
+        && isValidBookingSchema(incoming())
+        && isAdmin()
+        && incoming().bookingId == existing().bookingId
+        && incoming().bookingCode == existing().bookingCode
+        && incoming().createdAt == existing().createdAt
+        && incoming().source == existing().source
+        && incoming().updatedAt == request.time
+        && (
+          incoming().bookingStatus != 'CONFIRMED'
+          || (incoming().agreedFareRp > 0 && incoming().adminConfirmedPartnerReady == true)
+        )
+        && (
+          incoming().cashPaymentStatus != 'DIBAYAR'
+          || incoming().partnerConfirmedCash == true
+        )
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'bookingStatus',
+          'paymentStatus',
+          'assignedPartnerId',
+          'assignedPartnerName',
+          'assignmentStatus',
+          'assignmentHistory',
+          'agreedFareRp',
+          'tollFeeRp',
+          'parkingFeeRp',
+          'extraFeeRp',
+          'totalCashDueRp',
+          'cashPaymentStatus',
+          'partnerConfirmedCash',
+          'commissionRate',
+          'commissionAmountRp',
+          'adminConfirmedPartnerReady',
+          'cancellationReason',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // KOLEKSI: partners (Data PII terisolasi ketat hanya untuk Admin)
+    // =========================================================================
+    match /partners/{partnerId} {
+      allow get: if isValidId(partnerId) && isAdmin();
+
+      // Zero get()/exists() inside allow list
+      allow list: if isBootstrappedAdmin();
+
+      // Pendaftaran publik wajib status awal MENUNGGU_VERIFIKASI & batch atomik ke partner_status
+      allow create: if isValidId(partnerId)
+        && isValidPartnerSchema(incoming())
+        && incoming().id == partnerId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            incoming().status == 'MENUNGGU_VERIFIKASI'
+            && (!('rejectionReason' in incoming()) || incoming().rejectionReason == null)
+            && existsAfter(/databases/$(database)/documents/partner_status/$(incoming().registrationNumber))
+            && getAfter(/databases/$(database)/documents/partner_status/$(incoming().registrationNumber)).data.status == 'MENUNGGU_VERIFIKASI'
+          )
+        );
+
+      allow update: if isValidId(partnerId)
+        && isValidPartnerSchema(incoming())
+        && isAdmin()
+        && incoming().id == existing().id
+        && incoming().registrationNumber == existing().registrationNumber
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'status',
+          'rejectionReason',
+          'availability',
+          'updatedAt'
+        ])
+        && getAfter(/databases/$(database)/documents/partner_status/$(incoming().registrationNumber)).data.status == incoming().status;
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // KOLEKSI: partner_status (Proyeksi Non-PII untuk Cek Status di /mitra)
+    // =========================================================================
+    match /partner_status/{registrationNumber} {
+      allow get: if isValidId(registrationNumber);
+      allow list: if false;
+
+      allow create: if isValidId(registrationNumber)
+        && isValidPartnerStatusSchema(incoming())
+        && incoming().registrationNumber == registrationNumber
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            incoming().status == 'MENUNGGU_VERIFIKASI'
+            && (!('rejectionReason' in incoming()) || incoming().rejectionReason == null)
+          )
+        );
+
+      allow update: if isValidId(registrationNumber)
+        && isValidPartnerStatusSchema(incoming())
+        && isAdmin()
+        && incoming().registrationNumber == existing().registrationNumber
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'status',
+          'rejectionReason',
+          'availability',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // KOLEKSI: weekly_deposits (Setoran Mingguan Komisi 10% - Admin Only)
+    // =========================================================================
+    match /weekly_deposits/{depositId} {
+      allow get: if isValidId(depositId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+
+      allow create: if isValidId(depositId)
+        && isAdmin()
+        && isValidWeeklyDepositSchema(incoming())
+        && incoming().depositId == depositId
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(depositId)
+        && isAdmin()
+        && isValidWeeklyDepositSchema(incoming())
+        && incoming().depositId == existing().depositId
+        && incoming().partnerId == existing().partnerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'paidAmountRp',
+          'remainingDueRp',
+          'transferProofRef',
+          'transferNote',
+          'status',
+          'verifiedAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // KOLEKSI: settings (Pengaturan Komisi Platform - Admin Only)
+    // =========================================================================
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && isAdmin();
+      allow list: if false;
+
+      allow create, update: if isValidId(settingId)
+        && settingId == 'commission'
+        && isAdmin()
+        && isValidCommissionSettingsSchema(incoming())
+        && incoming().updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // KOLEKSI: users (Isolasi PII & Proteksi Role)
+    // =========================================================================
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && (
+        request.auth.uid == userId
+        || isAdmin()
+      );
+
+      allow list: if isBootstrappedAdmin();
+
+      allow create: if isValidId(userId)
+        && isSignedIn()
+        && request.auth.uid == userId
+        && isValidUserCreate(userId, incoming());
+
+      allow update: if isValidId(userId)
+        && isSignedIn()
+        && isValidUserSchema(incoming())
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            request.auth.uid == userId
+            && incoming().role == existing().role
+            && incoming().partnerStatus == existing().partnerStatus
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'updatedAt'])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // KOLEKSI: admins (Hanya dikelola Admin SDK / Firebase Console)
+    // =========================================================================
+    match /admins/{adminUid} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -4,86 +4,66 @@
  */
 
 import { useEffect, useState } from 'react';
-import { APIProvider } from '@vis.gl/react-google-maps';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { BookingForm } from './components/BookingForm';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Footer } from './components/Footer';
 import { HeroSection } from './components/HeroSection';
-import { BookingFormData } from './types/booking';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { PartnerPortalPage } from './pages/PartnerPortalPage';
+import { BookingFormData, INITIAL_BOOKING_FORM_DATA } from './types/booking';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+const BOOKING_DRAFT_STORAGE_KEY = 'tripkita_booking_draft_v1';
 
-const INITIAL_FORM_DATA: BookingFormData = {
-  nama: '',
-  whatsapp: '',
-  penjemputan: '',
-  penjemputanCoord: null,
-  tujuan: '',
-  tujuanCoord: null,
-  tanggal: '',
-  jam: '',
-  penumpang: '1',
-  catatan: '',
-};
+function loadSavedBookingDraft(): BookingFormData {
+  try {
+    const raw = window.localStorage.getItem(BOOKING_DRAFT_STORAGE_KEY);
+    if (!raw) return INITIAL_BOOKING_FORM_DATA;
+    const parsed = JSON.parse(raw) as Partial<BookingFormData>;
+    return {
+      ...INITIAL_BOOKING_FORM_DATA,
+      ...parsed,
+    };
+  } catch {
+    return INITIAL_BOOKING_FORM_DATA;
+  }
+}
 
-export default function App() {
-  const [formData, setFormData] = useState<BookingFormData>(INITIAL_FORM_DATA);
-  const [quotaExceeded, setQuotaExceeded] = useState(false);
+function CustomerHomePage() {
+  const [formData, setFormData] = useState<BookingFormData>(() => loadSavedBookingDraft());
 
   useEffect(() => {
-    const handleQuotaExceeded = () => setQuotaExceeded(true);
-    window.addEventListener('gmp-quota-exceeded', handleQuotaExceeded);
-    return () => {
-      window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
-    };
-  }, []);
+    try {
+      window.localStorage.setItem(BOOKING_DRAFT_STORAGE_KEY, JSON.stringify(formData));
+    } catch {
+      // Abaikan jika storage browser tidak tersedia
+    }
+  }, [formData]);
 
-  const mapsAvailable = Boolean(GOOGLE_MAPS_API_KEY);
-
-  const content = (
+  return (
     <div className="min-h-screen flex flex-col bg-[#F6FAF8] text-slate-900">
-      {quotaExceeded && (
-        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
-          <span>
-            Google Maps Platform quota reached. If you are the app owner, visit{' '}
-            <a
-              href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline font-semibold text-amber-950 hover:text-amber-800"
-            >
-              maps developer site
-            </a>{' '}
-            for instructions to update your account.
-          </span>
-        </div>
-      )}
-
       <main className="flex-1">
         <HeroSection />
 
-        <BookingForm
-          formData={formData}
-          mapsAvailable={mapsAvailable}
-          onChange={setFormData}
-        />
+        <BookingForm formData={formData} onChange={setFormData} />
       </main>
 
       <Footer />
     </div>
   );
+}
 
-  if (!mapsAvailable) {
-    return content;
-  }
-
+export default function App() {
   return (
-    <APIProvider
-      apiKey={GOOGLE_MAPS_API_KEY}
-      language="id"
-      region="ID"
-      libraries={['places', 'routes']}
-    >
-      {content}
-    </APIProvider>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<CustomerHomePage />} />
+          <Route path="/mitra" element={<PartnerPortalPage />} />
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

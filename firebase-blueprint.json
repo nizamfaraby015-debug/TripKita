@@ -1,0 +1,661 @@
+{
+  "entities": {
+    "LatLngPoint": {
+      "title": "LatLngPoint",
+      "description": "Koordinat geografis lintang dan bujur.",
+      "type": "object",
+      "properties": {
+        "lat": {
+          "type": "number",
+          "description": "Latitude (-90 hingga 90)"
+        },
+        "lng": {
+          "type": "number",
+          "description": "Longitude (-180 hingga 180)"
+        }
+      },
+      "required": ["lat", "lng"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Dokumen pesanan kendaraan dan operasional TripKita.",
+      "type": "object",
+      "properties": {
+        "bookingId": {
+          "type": "string",
+          "description": "ID unik dokumen booking untuk idempotensi.",
+          "minLength": 4,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "bookingCode": {
+          "type": "string",
+          "description": "Kode booking unik yang mudah dibaca (contoh: TK-261121-A8K2M).",
+          "minLength": 5,
+          "maxLength": 32,
+          "pattern": "^TK-[A-Z0-9-]+$"
+        },
+        "tripType": {
+          "type": "string",
+          "enum": ["SEKALI_JALAN", "ANTAR_TUNGGU", "PULANG_PERGI", "CARTER", "RENTAL_SOPIR"]
+        },
+        "tripDetails": {
+          "type": "object",
+          "description": "Detail tambahan sesuai jenis perjalanan (tunggu, PP, carter, rental)."
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "customerPhone": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 24
+        },
+        "pickupAddress": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "destinationAddress": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "pickupCoordinates": {
+          "type": "object",
+          "$ref": "#/entities/LatLngPoint",
+          "description": "Koordinat penjemputan (atau null jika diisi manual)."
+        },
+        "destinationCoordinates": {
+          "type": "object",
+          "$ref": "#/entities/LatLngPoint",
+          "description": "Koordinat tujuan (atau null jika diisi manual)."
+        },
+        "travelDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "travelTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^\\d{2}:\\d{2}$"
+        },
+        "passengerCount": {
+          "type": "integer",
+          "description": "Jumlah penumpang (1 hingga 50)."
+        },
+        "distanceKm": {
+          "type": "number",
+          "description": "Estimasi jarak dalam kilometer (atau null)."
+        },
+        "estimatedDuration": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Estimasi waktu tempuh dalam bahasa Indonesia (atau null)."
+        },
+        "customerNotes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "bookingStatus": {
+          "type": "string",
+          "enum": ["NEW", "CONFIRMED", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["UNPAID", "PAID", "REFUNDED"]
+        },
+        "assignedPartnerId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "ID mitra yang ditugaskan oleh admin (atau null)."
+        },
+        "assignedPartnerName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Nama mitra yang ditugaskan (atau null)."
+        },
+        "assignmentStatus": {
+          "type": "string",
+          "enum": ["MENUNGGU_MITRA", "DITAWARKAN", "DITERIMA", "DITOLAK", "DITUGASKAN", "SELESAI"]
+        },
+        "assignmentHistory": {
+          "type": "array",
+          "description": "Riwayat perubahan penugasan (maksimal 50 item)."
+        },
+        "customerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "UID pelanggan jika terautentikasi (atau null)."
+        },
+        "internalEstimatedFareRp": {
+          "type": "number",
+          "description": "Estimasi tarif internal admin (tidak tampil ke pelanggan)."
+        },
+        "agreedFareRp": {
+          "type": "number",
+          "description": "Tarif jasa akhir yang disepakati."
+        },
+        "tollFeeRp": {
+          "type": "number"
+        },
+        "parkingFeeRp": {
+          "type": "number"
+        },
+        "extraFeeRp": {
+          "type": "number"
+        },
+        "totalCashDueRp": {
+          "type": "number"
+        },
+        "cashPaymentStatus": {
+          "type": "string",
+          "enum": ["BELUM_DIBAYAR", "PERLU_VERIFIKASI", "DIBAYAR"]
+        },
+        "partnerConfirmedCash": {
+          "type": "boolean"
+        },
+        "commissionRate": {
+          "type": "number"
+        },
+        "commissionAmountRp": {
+          "type": "number"
+        },
+        "adminConfirmedPartnerReady": {
+          "type": "boolean"
+        },
+        "cancellationReason": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["WEB_BOOKING_FORM", "IMPORT_CSV", "SEED_DEMO"]
+        }
+      },
+      "required": [
+        "bookingId",
+        "bookingCode",
+        "tripType",
+        "tripDetails",
+        "customerName",
+        "customerPhone",
+        "pickupAddress",
+        "destinationAddress",
+        "pickupCoordinates",
+        "destinationCoordinates",
+        "travelDate",
+        "travelTime",
+        "passengerCount",
+        "distanceKm",
+        "estimatedDuration",
+        "customerNotes",
+        "bookingStatus",
+        "paymentStatus",
+        "assignedPartnerId",
+        "assignedPartnerName",
+        "assignmentStatus",
+        "assignmentHistory",
+        "customerUid",
+        "internalEstimatedFareRp",
+        "agreedFareRp",
+        "tollFeeRp",
+        "parkingFeeRp",
+        "extraFeeRp",
+        "totalCashDueRp",
+        "cashPaymentStatus",
+        "partnerConfirmedCash",
+        "commissionRate",
+        "commissionAmountRp",
+        "adminConfirmedPartnerReady",
+        "createdAt",
+        "updatedAt",
+        "source"
+      ]
+    },
+    "Partner": {
+      "title": "Partner",
+      "description": "Data pendaftaran lengkap mitra & armada TripKita (berisi PII, hanya Admin).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "registrationNumber": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 32,
+          "pattern": "^MTR-[A-Z0-9-]+$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["MENUNGGU_VERIFIKASI", "DISETUJUI", "DITOLAK"]
+        },
+        "fullName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "whatsapp": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 24
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 160
+        },
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "district": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "regency": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "partnershipType": {
+          "type": "string",
+          "enum": ["PEMILIK_KENDARAAN", "PENGEMUDI", "PEMILIK_DAN_PENGEMUDI"]
+        },
+        "services": {
+          "type": "array",
+          "description": "Daftar layanan yang dipilih mitra (1..6 item)."
+        },
+        "otherServiceNote": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "vehicleBrandType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "vehicleYear": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 4,
+          "pattern": "^\\d{4}$"
+        },
+        "licensePlate": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 20
+        },
+        "passengerCapacity": {
+          "type": "integer"
+        },
+        "operationalArea": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "availability": {
+          "type": "string",
+          "enum": ["TERSEDIA", "TERJADWAL", "TIDAK_TERSEDIA"]
+        },
+        "documents": {
+          "type": "object",
+          "description": "Hanya metadata nama berkas, tidak menyimpan isi/base64."
+        },
+        "rejectionReason": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "registrationNumber",
+        "status",
+        "fullName",
+        "whatsapp",
+        "email",
+        "address",
+        "district",
+        "regency",
+        "partnershipType",
+        "services",
+        "vehicleBrandType",
+        "vehicleYear",
+        "licensePlate",
+        "passengerCapacity",
+        "operationalArea",
+        "availability",
+        "documents",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PartnerPublicStatus": {
+      "title": "PartnerPublicStatus",
+      "description": "Proyeksi status verifikasi mitra tanpa PII untuk cek status berdasarkan nomor pendaftaran.",
+      "type": "object",
+      "properties": {
+        "registrationNumber": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 32,
+          "pattern": "^MTR-[A-Z0-9-]+$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["MENUNGGU_VERIFIKASI", "DISETUJUI", "DITOLAK"]
+        },
+        "partnershipType": {
+          "type": "string",
+          "enum": ["PEMILIK_KENDARAAN", "PENGEMUDI", "PEMILIK_DAN_PENGEMUDI"]
+        },
+        "services": {
+          "type": "array"
+        },
+        "vehicleBrandType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "availability": {
+          "type": "string",
+          "enum": ["TERSEDIA", "TERJADWAL", "TIDAK_TERSEDIA"]
+        },
+        "rejectionReason": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "registrationNumber",
+        "status",
+        "partnershipType",
+        "services",
+        "vehicleBrandType",
+        "availability",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WeeklyDeposit": {
+      "title": "WeeklyDeposit",
+      "description": "Catatan tagihan dan verifikasi setoran komisi mingguan 10% mitra.",
+      "type": "object",
+      "properties": {
+        "depositId": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "partnerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "partnerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "partnerWhatsapp": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "periodLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "periodStart": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "periodEnd": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "dueDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "bookingCodes": {
+          "type": "array"
+        },
+        "totalServiceFareRp": {
+          "type": "number"
+        },
+        "commissionRatePercent": {
+          "type": "number"
+        },
+        "totalCommissionRp": {
+          "type": "number"
+        },
+        "paidAmountRp": {
+          "type": "number"
+        },
+        "remainingDueRp": {
+          "type": "number"
+        },
+        "transferProofRef": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "transferNote": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "status": {
+          "type": "string",
+          "enum": ["BELUM_DIBAYAR", "PERLU_VERIFIKASI", "SUDAH_DIVERIFIKASI"]
+        },
+        "verifiedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "depositId",
+        "partnerId",
+        "partnerName",
+        "partnerWhatsapp",
+        "periodLabel",
+        "periodStart",
+        "periodEnd",
+        "dueDate",
+        "bookingCodes",
+        "totalServiceFareRp",
+        "commissionRatePercent",
+        "totalCommissionRp",
+        "paidAmountRp",
+        "remainingDueRp",
+        "transferProofRef",
+        "transferNote",
+        "status",
+        "updatedAt"
+      ]
+    },
+    "CommissionSettings": {
+      "title": "CommissionSettings",
+      "description": "Pengaturan komisi resmi TripKita 10%.",
+      "type": "object",
+      "properties": {
+        "platformCommissionPercent": {
+          "type": "number"
+        },
+        "minimumPlatformFeeRp": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["platformCommissionPercent", "minimumPlatformFeeRp", "updatedAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Profil dan role pengguna TripKita (CUSTOMER, PARTNER, ADMIN).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 160
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "role": {
+          "type": "string",
+          "enum": ["CUSTOMER", "PARTNER", "ADMIN"]
+        },
+        "partnerStatus": {
+          "type": "string",
+          "enum": ["NONE", "PENDING", "ACTIVE", "SUSPENDED"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "phone",
+        "role",
+        "partnerStatus",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminRegistry": {
+      "title": "AdminRegistry",
+      "description": "Koleksi admin tepercaya yang hanya dikelola melalui Firebase Console atau Admin SDK.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 160
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/bookings/{bookingId}": {
+      "schema": {
+        "$ref": "#/entities/Booking"
+      },
+      "description": "Daftar pemesanan dan operasional kendaraan TripKita."
+    },
+    "/partners/{partnerId}": {
+      "schema": {
+        "$ref": "#/entities/Partner"
+      },
+      "description": "Data pendaftaran mitra & armada TripKita (PII terisolasi untuk Admin)."
+    },
+    "/partner_status/{registrationNumber}": {
+      "schema": {
+        "$ref": "#/entities/PartnerPublicStatus"
+      },
+      "description": "Status pendaftaran mitra tanpa PII untuk pengecekan publik berdasarkan nomor pendaftaran."
+    },
+    "/weekly_deposits/{depositId}": {
+      "schema": {
+        "$ref": "#/entities/WeeklyDeposit"
+      },
+      "description": "Tagihan dan verifikasi setoran mingguan komisi 10% mitra."
+    },
+    "/settings/{settingId}": {
+      "schema": {
+        "$ref": "#/entities/CommissionSettings"
+      },
+      "description": "Konfigurasi komisi platform (/settings/commission)."
+    },
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Profil pengguna dan status kemitraan."
+    },
+    "/admins/{adminUid}": {
+      "schema": {
+        "$ref": "#/entities/AdminRegistry"
+      },
+      "description": "Daftar UID admin terverifikasi (hanya dikelola server/console)."
+    }
+  }
+}

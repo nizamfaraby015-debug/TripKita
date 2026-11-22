@@ -15,7 +15,7 @@ export function HeroSection() {
           <a
             href="#booking"
             aria-label="TripKita Beranda"
-            className="inline-flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-grab-500 rounded-lg"
+            className="inline-flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-grab-500 rounded-lg shrink-0"
           >
             <TripKitaLogo variant="dark" sizeClass="h-11 sm:h-14" />
           </a>
@@ -62,7 +62,7 @@ export function HeroSection() {
             </h1>
 
             <p className="mt-3 text-sm sm:text-base text-emerald-100/90 leading-relaxed max-w-xl">
-              Pilih lokasi penjemputan dan tujuan di peta, isi jadwal perjalanan, lalu kirim booking langsung ke WhatsApp admin.
+              Isi lokasi penjemputan, tujuan, dan jadwal perjalanan, lalu kirim booking langsung ke WhatsApp admin.
             </p>
           </div>
         </div>
