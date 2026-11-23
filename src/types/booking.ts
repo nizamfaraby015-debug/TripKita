@@ -155,26 +155,11 @@ export function formatIndonesianDate(isoDate: string): string {
 
 export function buildTripDetailsSummaryLines(data: BookingFormData): string[] {
   const lines: string[] = [];
-  if (data.jenisPerjalanan === 'ANTAR_TUNGGU') {
-    lines.push(`Perkiraan Durasi Tunggu: ${data.durasiTunggu.trim() || '-'}`);
-    lines.push(`Mode Penjemputan: ${WAIT_MODE_LABELS[data.modeTunggu]}`);
-    lines.push(
-      `Perkiraan Selesai: ${formatIndonesianDate(data.tanggalSelesai)} pukul ${data.jamSelesai.trim()}`
-    );
-  } else if (data.jenisPerjalanan === 'PULANG_PERGI') {
-    lines.push(
-      `Jadwal Pulang: ${formatIndonesianDate(data.tanggalPulang)} pukul ${data.jamPulang.trim()}`
-    );
-    lines.push(`Tujuan Perjalanan Pulang: ${data.lokasiPulang.trim() || '-'}`);
-  } else if (
+  if (
     data.jenisPerjalanan === 'CARTER' ||
     data.jenisPerjalanan === 'RENTAL_SOPIR'
   ) {
     lines.push(`Durasi Pemakaian: ${data.durasiPemakaian.trim() || '-'}`);
-    lines.push(
-      `Perkiraan Selesai: ${formatIndonesianDate(data.tanggalSelesai)} pukul ${data.jamSelesai.trim()}`
-    );
-    lines.push(`Kebutuhan Pelanggan: ${data.keteranganKebutuhan.trim() || '-'}`);
   }
   return lines;
 }

@@ -284,28 +284,12 @@ export function recordDemoBookingFromForm(params: {
       : calculateInternalFare(0);
 
   const tripDetails =
-    formData.jenisPerjalanan === 'ANTAR_TUNGGU'
+    formData.jenisPerjalanan === 'CARTER' ||
+    formData.jenisPerjalanan === 'RENTAL_SOPIR'
       ? {
-          waitDuration: formData.durasiTunggu.trim(),
-          waitMode: formData.modeTunggu,
-          estimatedEndDate: formData.tanggalSelesai.trim(),
-          estimatedEndTime: formData.jamSelesai.trim(),
+          rentalDuration: formData.durasiPemakaian.trim(),
         }
-      : formData.jenisPerjalanan === 'PULANG_PERGI'
-        ? {
-            returnDate: formData.tanggalPulang.trim(),
-            returnTime: formData.jamPulang.trim(),
-            returnDestination: formData.lokasiPulang.trim(),
-          }
-        : formData.jenisPerjalanan === 'CARTER' ||
-            formData.jenisPerjalanan === 'RENTAL_SOPIR'
-          ? {
-              rentalDuration: formData.durasiPemakaian.trim(),
-              estimatedEndDate: formData.tanggalSelesai.trim(),
-              estimatedEndTime: formData.jamSelesai.trim(),
-              usageNeeds: formData.keteranganKebutuhan.trim(),
-            }
-          : {};
+      : {};
 
   const record: OperationalBookingRecord = {
     bookingId: params.bookingId,

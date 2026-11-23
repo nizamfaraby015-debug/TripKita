@@ -97,15 +97,10 @@ export function buildBookingFingerprint(
     jam: data.jam.trim(),
     penumpang: data.penumpang.trim(),
     catatan: data.catatan.trim(),
-    durasiTunggu: data.durasiTunggu.trim(),
-    modeTunggu: data.modeTunggu,
-    tanggalSelesai: data.tanggalSelesai.trim(),
-    jamSelesai: data.jamSelesai.trim(),
-    tanggalPulang: data.tanggalPulang.trim(),
-    jamPulang: data.jamPulang.trim(),
-    lokasiPulang: data.lokasiPulang.trim(),
-    durasiPemakaian: data.durasiPemakaian.trim(),
-    keteranganKebutuhan: data.keteranganKebutuhan.trim(),
+    durasiPemakaian:
+      data.jenisPerjalanan === 'CARTER' || data.jenisPerjalanan === 'RENTAL_SOPIR'
+        ? data.durasiPemakaian.trim()
+        : '',
     distanceMeters: routeMetrics?.distanceMeters ?? null,
     durationMillis: routeMetrics?.durationMillis ?? null,
   });
@@ -173,28 +168,12 @@ export function buildBookingDocumentPayload(
       : calculateInternalFare(0);
 
   const tripDetails =
-    formData.jenisPerjalanan === 'ANTAR_TUNGGU'
+    formData.jenisPerjalanan === 'CARTER' ||
+    formData.jenisPerjalanan === 'RENTAL_SOPIR'
       ? {
-          waitDuration: formData.durasiTunggu.trim().slice(0, 80),
-          waitMode: formData.modeTunggu,
-          estimatedEndDate: formData.tanggalSelesai.trim().slice(0, 10),
-          estimatedEndTime: normalizeTravelTime(formData.jamSelesai),
+          rentalDuration: formData.durasiPemakaian.trim().slice(0, 80),
         }
-      : formData.jenisPerjalanan === 'PULANG_PERGI'
-        ? {
-            returnDate: formData.tanggalPulang.trim().slice(0, 10),
-            returnTime: normalizeTravelTime(formData.jamPulang),
-            returnDestination: formData.lokasiPulang.trim().slice(0, 300),
-          }
-        : formData.jenisPerjalanan === 'CARTER' ||
-            formData.jenisPerjalanan === 'RENTAL_SOPIR'
-          ? {
-              rentalDuration: formData.durasiPemakaian.trim().slice(0, 80),
-              estimatedEndDate: formData.tanggalSelesai.trim().slice(0, 10),
-              estimatedEndTime: normalizeTravelTime(formData.jamSelesai),
-              usageNeeds: formData.keteranganKebutuhan.trim().slice(0, 500),
-            }
-          : {};
+      : {};
 
   return {
     bookingId: identifiers.bookingId,

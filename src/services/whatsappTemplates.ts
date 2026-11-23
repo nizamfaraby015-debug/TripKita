@@ -50,34 +50,42 @@ export const WHATSAPP_TEMPLATE_LIST: WhatsAppTemplateMeta[] = [
 function buildTripDetailLinesForBooking(b: OperationalBookingRecord): string[] {
   const lines: string[] = [];
   if (b.tripType === 'ANTAR_TUNGGU') {
-    lines.push(`Perkiraan Durasi Tunggu: ${b.tripDetails.waitDuration || '-'}`);
-    lines.push(
-      `Mode Tunggu: ${
-        b.tripDetails.waitMode
-          ? WAIT_MODE_LABELS[b.tripDetails.waitMode]
-          : '-'
-      }`
-    );
-    lines.push(
-      `Perkiraan Selesai: ${formatIndonesianDate(b.tripDetails.estimatedEndDate || '')} ${
-        b.tripDetails.estimatedEndTime || ''
-      }`.trim()
-    );
+    if (b.tripDetails.waitDuration) {
+      lines.push(`Perkiraan Durasi Tunggu: ${b.tripDetails.waitDuration}`);
+    }
+    if (b.tripDetails.waitMode) {
+      lines.push(`Mode Tunggu: ${WAIT_MODE_LABELS[b.tripDetails.waitMode]}`);
+    }
+    if (b.tripDetails.estimatedEndDate || b.tripDetails.estimatedEndTime) {
+      lines.push(
+        `Perkiraan Selesai: ${formatIndonesianDate(b.tripDetails.estimatedEndDate || '')} ${
+          b.tripDetails.estimatedEndTime || ''
+        }`.trim()
+      );
+    }
   } else if (b.tripType === 'PULANG_PERGI') {
-    lines.push(
-      `Jadwal Pulang (PP): ${formatIndonesianDate(b.tripDetails.returnDate || '')} pukul ${
-        b.tripDetails.returnTime || '-'
-      }`
-    );
-    lines.push(`Tujuan Pulang: ${b.tripDetails.returnDestination || '-'}`);
+    if (b.tripDetails.returnDate || b.tripDetails.returnTime) {
+      lines.push(
+        `Jadwal Pulang (PP): ${formatIndonesianDate(b.tripDetails.returnDate || '')}${
+          b.tripDetails.returnTime ? ` pukul ${b.tripDetails.returnTime}` : ''
+        }`.trim()
+      );
+    }
+    if (b.tripDetails.returnDestination) {
+      lines.push(`Tujuan Pulang: ${b.tripDetails.returnDestination}`);
+    }
   } else if (b.tripType === 'CARTER' || b.tripType === 'RENTAL_SOPIR') {
     lines.push(`Durasi Pemakaian: ${b.tripDetails.rentalDuration || '-'}`);
-    lines.push(
-      `Perkiraan Selesai: ${formatIndonesianDate(b.tripDetails.estimatedEndDate || '')} ${
-        b.tripDetails.estimatedEndTime || ''
-      }`.trim()
-    );
-    lines.push(`Kebutuhan: ${b.tripDetails.usageNeeds || '-'}`);
+    if (b.tripDetails.estimatedEndDate || b.tripDetails.estimatedEndTime) {
+      lines.push(
+        `Perkiraan Selesai: ${formatIndonesianDate(b.tripDetails.estimatedEndDate || '')} ${
+          b.tripDetails.estimatedEndTime || ''
+        }`.trim()
+      );
+    }
+    if (b.tripDetails.usageNeeds) {
+      lines.push(`Kebutuhan: ${b.tripDetails.usageNeeds}`);
+    }
   }
   return lines;
 }

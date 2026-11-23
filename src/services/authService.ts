@@ -1,5 +1,4 @@
 import {
-  GoogleAuthProvider,
   User,
   UserCredential,
   createUserWithEmailAndPassword,
@@ -7,7 +6,6 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
-  signInWithPopup,
   signOut,
   updateProfile,
 } from 'firebase/auth';
@@ -30,17 +28,6 @@ function requireFirebaseAuth() {
     );
   }
   return { auth, db };
-}
-
-/**
- * Login admin menggunakan Google Authentication (signInWithPopup).
- * Tidak menggunakan signInWithRedirect karena environment preview berjalan di iframe.
- */
-export async function loginAdminWithGoogle(): Promise<UserCredential> {
-  const { auth: firebaseAuth } = requireFirebaseAuth();
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: 'select_account' });
-  return signInWithPopup(firebaseAuth, provider);
 }
 
 export async function loginAdminWithEmailPassword(

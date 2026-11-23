@@ -378,43 +378,61 @@ export function AdminBookingsSection({
                 </div>
 
                 {/* Detail Kondisional Jenis Perjalanan */}
-                {selectedBooking.tripType === 'ANTAR_TUNGGU' && (
-                  <div className="pt-1.5 mt-1.5 border-t border-emerald-950/10 space-y-1 text-forest-900">
-                    <div>
-                      <strong>Durasi Tunggu:</strong>{' '}
-                      {selectedBooking.tripDetails.waitDuration || '-'}
+                {selectedBooking.tripType === 'ANTAR_TUNGGU' &&
+                  (selectedBooking.tripDetails.waitDuration ||
+                    selectedBooking.tripDetails.waitMode ||
+                    selectedBooking.tripDetails.estimatedEndDate) && (
+                    <div className="pt-1.5 mt-1.5 border-t border-emerald-950/10 space-y-1 text-forest-900">
+                      {selectedBooking.tripDetails.waitDuration && (
+                        <div>
+                          <strong>Durasi Tunggu:</strong>{' '}
+                          {selectedBooking.tripDetails.waitDuration}
+                        </div>
+                      )}
+                      {selectedBooking.tripDetails.waitMode && (
+                        <div>
+                          <strong>Mode Tunggu:</strong>{' '}
+                          {WAIT_MODE_LABELS[selectedBooking.tripDetails.waitMode]}
+                        </div>
+                      )}
+                      {(selectedBooking.tripDetails.estimatedEndDate ||
+                        selectedBooking.tripDetails.estimatedEndTime) && (
+                        <div>
+                          <strong>Perkiraan Selesai:</strong>{' '}
+                          {formatIndonesianDate(
+                            selectedBooking.tripDetails.estimatedEndDate || ''
+                          )}{' '}
+                          {selectedBooking.tripDetails.estimatedEndTime || ''}
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <strong>Mode Tunggu:</strong>{' '}
-                      {selectedBooking.tripDetails.waitMode
-                        ? WAIT_MODE_LABELS[selectedBooking.tripDetails.waitMode]
-                        : '-'}
-                    </div>
-                    <div>
-                      <strong>Perkiraan Selesai:</strong>{' '}
-                      {formatIndonesianDate(
-                        selectedBooking.tripDetails.estimatedEndDate || ''
-                      )}{' '}
-                      {selectedBooking.tripDetails.estimatedEndTime || ''}
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {selectedBooking.tripType === 'PULANG_PERGI' && (
-                  <div className="pt-1.5 mt-1.5 border-t border-emerald-950/10 space-y-1 text-forest-900">
-                    <div>
-                      <strong>Jadwal Pulang (PP):</strong>{' '}
-                      {formatIndonesianDate(
-                        selectedBooking.tripDetails.returnDate || ''
-                      )}{' '}
-                      pukul {selectedBooking.tripDetails.returnTime || '-'}
+                {selectedBooking.tripType === 'PULANG_PERGI' &&
+                  (selectedBooking.tripDetails.returnDate ||
+                    selectedBooking.tripDetails.returnTime ||
+                    selectedBooking.tripDetails.returnDestination) && (
+                    <div className="pt-1.5 mt-1.5 border-t border-emerald-950/10 space-y-1 text-forest-900">
+                      {(selectedBooking.tripDetails.returnDate ||
+                        selectedBooking.tripDetails.returnTime) && (
+                        <div>
+                          <strong>Jadwal Pulang (PP):</strong>{' '}
+                          {formatIndonesianDate(
+                            selectedBooking.tripDetails.returnDate || ''
+                          )}{' '}
+                          {selectedBooking.tripDetails.returnTime
+                            ? `pukul ${selectedBooking.tripDetails.returnTime}`
+                            : ''}
+                        </div>
+                      )}
+                      {selectedBooking.tripDetails.returnDestination && (
+                        <div>
+                          <strong>Tujuan Pulang:</strong>{' '}
+                          {selectedBooking.tripDetails.returnDestination}
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <strong>Tujuan Pulang:</strong>{' '}
-                      {selectedBooking.tripDetails.returnDestination || '-'}
-                    </div>
-                  </div>
-                )}
+                  )}
 
                 {(selectedBooking.tripType === 'CARTER' ||
                   selectedBooking.tripType === 'RENTAL_SOPIR') && (
@@ -423,17 +441,22 @@ export function AdminBookingsSection({
                       <strong>Durasi Pemakaian:</strong>{' '}
                       {selectedBooking.tripDetails.rentalDuration || '-'}
                     </div>
-                    <div>
-                      <strong>Perkiraan Selesai:</strong>{' '}
-                      {formatIndonesianDate(
-                        selectedBooking.tripDetails.estimatedEndDate || ''
-                      )}{' '}
-                      {selectedBooking.tripDetails.estimatedEndTime || ''}
-                    </div>
-                    <div>
-                      <strong>Kebutuhan Pelanggan:</strong>{' '}
-                      {selectedBooking.tripDetails.usageNeeds || '-'}
-                    </div>
+                    {(selectedBooking.tripDetails.estimatedEndDate ||
+                      selectedBooking.tripDetails.estimatedEndTime) && (
+                      <div>
+                        <strong>Perkiraan Selesai:</strong>{' '}
+                        {formatIndonesianDate(
+                          selectedBooking.tripDetails.estimatedEndDate || ''
+                        )}{' '}
+                        {selectedBooking.tripDetails.estimatedEndTime || ''}
+                      </div>
+                    )}
+                    {selectedBooking.tripDetails.usageNeeds && (
+                      <div>
+                        <strong>Kebutuhan Pelanggan:</strong>{' '}
+                        {selectedBooking.tripDetails.usageNeeds}
+                      </div>
+                    )}
                   </div>
                 )}
 

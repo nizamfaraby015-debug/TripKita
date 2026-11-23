@@ -7,8 +7,10 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileCheck2,
+  FileText,
   Loader2,
   MapPin,
+  Percent,
   ShieldCheck,
   Upload,
   UserCheck,
@@ -37,7 +39,8 @@ const STEPS = [
   { id: 2, title: 'Jenis Kemitraan' },
   { id: 3, title: 'Jenis Layanan' },
   { id: 4, title: 'Data Kendaraan' },
-  { id: 5, title: 'Dokumen' },
+  { id: 5, title: 'Perjanjian Komisi' },
+  { id: 6, title: 'Dokumen' },
 ] as const;
 
 type FormErrors = Record<string, string>;
@@ -80,7 +83,10 @@ export function PartnerRegistrationForm({ onSubmitted }: PartnerRegistrationForm
   const [operationalArea, setOperationalArea] = useState('');
   const [availability, setAvailability] = useState<VehicleAvailability>('TERSEDIA');
 
-  // Step 5: Dokumen (hanya nama berkas untuk simulasi, tidak disimpan ke localStorage)
+  // Step 5: Perjanjian Komisi 10%
+  const [agreedCommission, setAgreedCommission] = useState(false);
+
+  // Step 6: Dokumen (hanya nama berkas untuk simulasi, tidak disimpan ke localStorage)
   const [documents, setDocuments] =
     useState<PartnerDocumentPlaceholder>(INITIAL_DOCUMENTS);
 
@@ -170,6 +176,13 @@ export function PartnerRegistrationForm({ onSubmitted }: PartnerRegistrationForm
       }
     }
 
+    if (targetStep === 5) {
+      if (!agreedCommission) {
+        nextErrors.agreedCommission =
+          'Anda wajib menyetujui perjanjian komisi 10% TripKita untuk melanjutkan pendaftaran.';
+      }
+    }
+
     return nextErrors;
   };
 
@@ -180,7 +193,7 @@ export function PartnerRegistrationForm({ onSubmitted }: PartnerRegistrationForm
       return;
     }
     setErrors({});
-    setStep((prev) => Math.min(5, prev + 1));
+    setStep((prev) => Math.min(STEPS.length, prev + 1));
   };
 
   const handlePrevStep = () => {
@@ -191,6 +204,14 @@ export function PartnerRegistrationForm({ onSubmitted }: PartnerRegistrationForm
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (submitting) return;
+    if (!agreedCommission) {
+      setStep(5);
+      setErrors({
+        agreedCommission:
+          'Anda wajib menyetujui perjanjian komisi 10% TripKita sebelum mengirim pendaftaran.',
+      });
+      return;
+    }
     const finalErrors = validateStep(step);
     if (Object.keys(finalErrors).length > 0) {
       setErrors(finalErrors);
@@ -254,6 +275,7 @@ export function PartnerRegistrationForm({ onSubmitted }: PartnerRegistrationForm
     setPassengerCapacity('4');
     setOperationalArea('');
     setAvailability('TERSEDIA');
+    setAgreedCommission(false);
     setDocuments(INITIAL_DOCUMENTS);
   };
 
@@ -348,7 +370,7 @@ export function PartnerRegistrationForm({ onSubmitted }: PartnerRegistrationForm
           </span>
         </div>
 
-        <ol className="grid grid-cols-5 gap-1.5 sm:gap-2.5">
+        <ol className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {STEPS.map((item) => {
             const isActive = item.id === step;
             const isDone = item.id < step;
@@ -799,12 +821,101 @@ export function PartnerRegistrationForm({ onSubmitted }: PartnerRegistrationForm
           </div>
         )}
 
-        {/* STEP 5: DOKUMEN */}
+        {/* STEP 5: KETERANGAN & PERJANJIAN KOMISI 10% */}
         {step === 5 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-display font-bold text-forest-900 pb-2 border-b border-slate-100">
-              <FileCheck2 className="w-4 h-4 text-grab-600" aria-hidden="true" />
-              <span>E. Dokumen Kelengkapan</span>
+              <Percent className="w-4 h-4 text-grab-600" aria-hidden="true" />
+              <span>E. Keterangan &amp; Perjanjian Komisi Mitra (10%)</span>
+            </div>
+
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/75 p-4 sm:p-5 space-y-3 text-xs sm:text-sm text-emerald-950">
+              <div className="flex items-start gap-2.5">
+                <FileText className="w-5 h-5 text-grab-700 shrink-0 mt-0.5" aria-hidden="true" />
+                <div>
+                  <h3 className="font-display font-bold text-sm sm:text-base text-forest-900">
+                    Ketentuan Resmi Kemitraan &amp; Komisi TripKita 10%
+                  </h3>
+                  <p className="mt-1 text-emerald-900/90 leading-relaxed">
+                    Sebelum melanjutkan dan mengirimkan data pendaftaran, harap baca serta pahami ketentuan pembagian hasil resmi TripKita berikut:
+                  </p>
+                </div>
+              </div>
+
+              <ul className="space-y-2 pl-1 text-slate-800 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-grab-600 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>
+                    <strong>Komisi Platform 10%:</strong> TripKita mengenakan biaya komisi resmi sebesar <strong>10% dari Tarif Jasa</strong> untuk setiap perjalanan yang berhasil diselesaikan (berstatus Selesai).
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-grab-600 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>
+                    <strong>Tol, Parkir &amp; Biaya Tambahan 100% Milik Mitra:</strong> Pengeluaran tol, parkir, penyeberangan, atau biaya tambahan lapangan di luar tarif jasa tidak dikenakan potongan komisi 10%.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-grab-600 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>
+                    <strong>Pembayaran Tunai &amp; Setoran Mingguan:</strong> Pembayaran dari pelanggan diterima langsung oleh mitra di lapangan, dan total komisi 10% disetorkan secara berkala mingguan melalui rekening resmi TripKita.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-grab-600 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>
+                    <strong>Transparansi Penugasan:</strong> Mitra berhak melihat rincian rute dan tarif jasa terlebih dahulu sebelum menyetujui penawaran perjalanan dari admin.
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <label
+              htmlFor="mitra-agreedCommission"
+              className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${
+                agreedCommission
+                  ? 'border-grab-600 bg-forest-50 text-forest-950'
+                  : errors.agreedCommission
+                    ? 'border-red-400 bg-red-50/40 text-slate-900'
+                    : 'border-slate-300 hover:border-emerald-700/40 bg-white text-slate-800'
+              }`}
+            >
+              <input
+                id="mitra-agreedCommission"
+                type="checkbox"
+                checked={agreedCommission}
+                onChange={(e) => {
+                  setAgreedCommission(e.target.checked);
+                  clearError('agreedCommission');
+                }}
+                className="mt-0.5 w-4 h-4 rounded accent-[#008F40] shrink-0 cursor-pointer"
+              />
+              <span className="text-xs sm:text-sm font-medium leading-relaxed">
+                Saya telah membaca, memahami, dan <strong>setuju dengan perjanjian komisi 10%</strong> serta ketentuan kemitraan TripKita untuk melanjutkan pengiriman data pendaftaran.
+              </span>
+            </label>
+
+            {errors.agreedCommission && (
+              <p className="text-xs text-red-600 font-medium flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>{errors.agreedCommission}</span>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* STEP 6: DOKUMEN */}
+        {step === 6 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-sm font-display font-bold text-forest-900">
+                <FileCheck2 className="w-4 h-4 text-grab-600" aria-hidden="true" />
+                <span>F. Dokumen Kelengkapan</span>
+              </div>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900 font-semibold text-[11px]">
+                <CheckCircle2 className="w-3.5 h-3.5 text-grab-600" aria-hidden="true" />
+                <span>Komisi 10% Disetujui</span>
+              </span>
             </div>
 
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs sm:text-sm text-emerald-950 flex items-start gap-2.5">
@@ -900,11 +1011,12 @@ export function PartnerRegistrationForm({ onSubmitted }: PartnerRegistrationForm
             <div />
           )}
 
-          {step < 5 ? (
+          {step < STEPS.length ? (
             <button
               type="button"
+              disabled={step === 5 && !agreedCommission}
               onClick={handleNextStep}
-              className="min-h-[46px] px-5 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#00A84B] to-[#008A3C] hover:from-[#009944] hover:to-[#007834] text-white font-display font-bold text-sm inline-flex items-center gap-2 cursor-pointer shadow-sm shadow-emerald-600/20 transition-all"
+              className="min-h-[46px] px-5 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#00A84B] to-[#008A3C] hover:from-[#009944] hover:to-[#007834] disabled:opacity-50 disabled:cursor-not-allowed text-white font-display font-bold text-sm inline-flex items-center gap-2 cursor-pointer shadow-sm shadow-emerald-600/20 transition-all"
             >
               <span>Lanjutkan</span>
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
@@ -912,8 +1024,8 @@ export function PartnerRegistrationForm({ onSubmitted }: PartnerRegistrationForm
           ) : (
             <button
               type="submit"
-              disabled={submitting}
-              className="min-h-[48px] px-6 py-3 rounded-xl bg-gradient-to-r from-[#00A84B] to-[#008A3C] hover:from-[#009944] hover:to-[#007834] disabled:opacity-60 text-white font-display font-bold text-sm inline-flex items-center gap-2 cursor-pointer shadow-md shadow-emerald-600/25 transition-all"
+              disabled={submitting || !agreedCommission}
+              className="min-h-[48px] px-6 py-3 rounded-xl bg-gradient-to-r from-[#00A84B] to-[#008A3C] hover:from-[#009944] hover:to-[#007834] disabled:opacity-60 disabled:cursor-not-allowed text-white font-display font-bold text-sm inline-flex items-center gap-2 cursor-pointer shadow-md shadow-emerald-600/25 transition-all"
             >
               {submitting ? (
                 <>
