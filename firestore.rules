@@ -67,8 +67,9 @@ service cloud.firestore {
 
     function isValidTripDetails(details) {
       return details is map
-        && details.keys().size() <= 9
+        && details.keys().size() <= 10
         && details.keys().hasOnly([
+          'packageDetails',
           'waitDuration',
           'waitMode',
           'estimatedEndDate',
@@ -79,6 +80,7 @@ service cloud.firestore {
           'rentalDuration',
           'usageNeeds'
         ])
+        && (!('packageDetails' in details) || details.packageDetails == null || (details.packageDetails is string && details.packageDetails.size() <= 300))
         && (!('waitDuration' in details) || details.waitDuration == null || (details.waitDuration is string && details.waitDuration.size() <= 80))
         && (!('waitMode' in details) || details.waitMode == null || details.waitMode in ['TUNGGU_DI_LOKASI', 'JEMPUT_KEMBALI'])
         && (!('estimatedEndDate' in details) || details.estimatedEndDate == null || (details.estimatedEndDate is string && details.estimatedEndDate.size() <= 10))
@@ -196,7 +198,15 @@ service cloud.firestore {
         && data.bookingCode.size() >= 5
         && data.bookingCode.size() <= 32
         && data.bookingCode.matches('^TK-[A-Z0-9-]+$')
-        && data.tripType in ['SEKALI_JALAN', 'ANTAR_TUNGGU', 'PULANG_PERGI', 'CARTER', 'RENTAL_SOPIR']
+        && data.tripType in [
+          'SEKALI_JALAN',
+          'ANTAR_TUNGGU',
+          'PULANG_PERGI',
+          'CARTER',
+          'RENTAL_SOPIR',
+          'LIBURAN_KELUARGA',
+          'AMBIL_ANTAR_PAKET'
+        ]
         && isValidTripDetails(data.tripDetails)
         && data.customerName is string
         && data.customerName.size() >= 1
@@ -694,7 +704,7 @@ service cloud.firestore {
           'updatedAt'
         ]);
 
-      allow delete: if false;
+      allow delete: if isValidId(bookingId) && isAdmin();
     }
 
     // =========================================================================
@@ -737,7 +747,7 @@ service cloud.firestore {
         ])
         && getAfter(/databases/$(database)/documents/partner_status/$(incoming().registrationNumber)).data.status == incoming().status;
 
-      allow delete: if false;
+      allow delete: if isValidId(partnerId) && isAdmin();
     }
 
     // =========================================================================
@@ -773,7 +783,7 @@ service cloud.firestore {
           'updatedAt'
         ]);
 
-      allow delete: if false;
+      allow delete: if isValidId(registrationNumber) && isAdmin();
     }
 
     // =========================================================================

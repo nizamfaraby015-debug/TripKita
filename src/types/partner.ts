@@ -124,7 +124,7 @@ export const PARTNER_SERVICE_LABELS: Record<PartnerServiceType, string> = {
 export const VEHICLE_AVAILABILITY_LABELS: Record<VehicleAvailability, string> = {
   TERSEDIA: 'Tersedia',
   TERJADWAL: 'Terjadwal',
-  TIDAK_TERSEDIA: 'Tidak Tersedia',
+  TIDAK_TERSEDIA: 'Tidak Aktif / Tidak Tersedia',
 };
 
 export const PARTNER_STATUS_LABELS: Record<PartnerVerificationStatus, string> = {

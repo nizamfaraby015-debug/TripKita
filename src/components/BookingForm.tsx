@@ -1,16 +1,25 @@
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
+  ArrowLeftRight,
   ArrowUpDown,
   Calendar,
+  Car,
+  Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Copy,
   ExternalLink,
   FileText,
+  GraduationCap,
+  HeartHandshake,
+  KeyRound,
   Loader2,
   MapPin,
   Minus,
+  Package,
+  Palmtree,
   Phone,
   Plus,
   RefreshCw,
@@ -43,19 +52,81 @@ interface BookingFormProps {
   onChange: (updated: BookingFormData) => void;
 }
 
-const TRIP_TYPE_OPTIONS: Array<{ id: TripType; label: string }> = [
-  { id: 'SEKALI_JALAN', label: TRIP_TYPE_LABELS.SEKALI_JALAN },
-  { id: 'ANTAR_TUNGGU', label: TRIP_TYPE_LABELS.ANTAR_TUNGGU },
-  { id: 'PULANG_PERGI', label: TRIP_TYPE_LABELS.PULANG_PERGI },
-  { id: 'CARTER', label: TRIP_TYPE_LABELS.CARTER },
-  { id: 'RENTAL_SOPIR', label: TRIP_TYPE_LABELS.RENTAL_SOPIR },
+interface ServiceChoiceItem {
+  id: TripType;
+  label: string;
+  description: string;
+}
+
+const SERVICE_CHOICE_LIST: ServiceChoiceItem[] = [
+  {
+    id: 'SEKALI_JALAN',
+    label: TRIP_TYPE_LABELS.SEKALI_JALAN,
+    description: 'Pengantaran langsung satu arah ke titik tujuan',
+  },
+  {
+    id: 'PULANG_PERGI',
+    label: TRIP_TYPE_LABELS.PULANG_PERGI,
+    description: 'Perjalanan pergi dan pulang kembali',
+  },
+  {
+    id: 'RENTAL_SOPIR',
+    label: TRIP_TYPE_LABELS.RENTAL_SOPIR,
+    description: 'Sewa mobil beserta sopir sesuai durasi pemakaian',
+  },
+  {
+    id: 'ANTAR_TUNGGU',
+    label: TRIP_TYPE_LABELS.ANTAR_TUNGGU,
+    description: 'Pengantaran dan penjemputan sekolah tepat waktu',
+  },
+  {
+    id: 'CARTER',
+    label: TRIP_TYPE_LABELS.CARTER,
+    description: 'Pendampingan keluarga, lansia, atau keperluan khusus',
+  },
+  {
+    id: 'LIBURAN_KELUARGA',
+    label: TRIP_TYPE_LABELS.LIBURAN_KELUARGA,
+    description: 'Perjalanan wisata keluarga dengan jadwal fleksibel',
+  },
+  {
+    id: 'AMBIL_ANTAR_PAKET',
+    label: TRIP_TYPE_LABELS.AMBIL_ANTAR_PAKET,
+    description: 'Pengiriman barang, dokumen, dan paket langsung ke penerima',
+  },
 ];
+
+function ServiceOptionIcon({
+  tripType,
+  className = 'w-4 h-4',
+}: {
+  tripType: TripType;
+  className?: string;
+}) {
+  switch (tripType) {
+    case 'SEKALI_JALAN':
+      return <Car className={className} aria-hidden="true" />;
+    case 'PULANG_PERGI':
+      return <ArrowLeftRight className={className} aria-hidden="true" />;
+    case 'RENTAL_SOPIR':
+      return <KeyRound className={className} aria-hidden="true" />;
+    case 'ANTAR_TUNGGU':
+      return <GraduationCap className={className} aria-hidden="true" />;
+    case 'CARTER':
+      return <HeartHandshake className={className} aria-hidden="true" />;
+    case 'LIBURAN_KELUARGA':
+      return <Palmtree className={className} aria-hidden="true" />;
+    case 'AMBIL_ANTAR_PAKET':
+      return <Package className={className} aria-hidden="true" />;
+  }
+}
 
 export function BookingForm({
   formData,
   onChange,
 }: BookingFormProps) {
   const [errors, setErrors] = useState<BookingFormErrors>({});
+  const [isServiceMenuOpen, setIsServiceMenuOpen] = useState(false);
   const routeMetrics: RouteMetrics | null = null;
   const [submittedPayload, setSubmittedPayload] = useState<{
     message: string;
@@ -74,6 +145,7 @@ export function BookingForm({
   });
 
   const waAnchorRef = useRef<HTMLAnchorElement | null>(null);
+  const serviceDropdownRef = useRef<HTMLDivElement | null>(null);
   const activeSubmissionRef = useRef<{
     identifiers: IdempotentBookingIdentifiers;
     formData: BookingFormData;
@@ -81,6 +153,36 @@ export function BookingForm({
   } | null>(null);
   const isSavingRef = useRef(false);
   const todayISO = getTodayLocalISO();
+
+  useEffect(() => {
+    if (!isServiceMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        serviceDropdownRef.current &&
+        !serviceDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsServiceMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsServiceMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isServiceMenuOpen]);
+
+  const selectedServiceOption =
+    SERVICE_CHOICE_LIST.find((item) => item.id === formData.jenisPerjalanan) ??
+    SERVICE_CHOICE_LIST[0];
 
   const updateField = <K extends keyof BookingFormData>(
     key: K,
@@ -102,6 +204,7 @@ export function BookingForm({
       jenisPerjalanan: nextType,
     });
     setErrors({});
+    setIsServiceMenuOpen(false);
   };
 
   const handleSwapLocations = () => {
@@ -125,11 +228,17 @@ export function BookingForm({
     const nextErrors: BookingFormErrors = {};
 
     if (!formData.penjemputan.trim()) {
-      nextErrors.penjemputan = 'Lokasi penjemputan wajib diisi.';
+      nextErrors.penjemputan =
+        formData.jenisPerjalanan === 'AMBIL_ANTAR_PAKET'
+          ? 'Lokasi ambil paket wajib diisi.'
+          : 'Lokasi penjemputan wajib diisi.';
     }
 
     if (!formData.tujuan.trim()) {
-      nextErrors.tujuan = 'Tujuan perjalanan wajib diisi.';
+      nextErrors.tujuan =
+        formData.jenisPerjalanan === 'AMBIL_ANTAR_PAKET'
+          ? 'Lokasi antar paket wajib diisi.'
+          : 'Tujuan perjalanan wajib diisi.';
     }
 
     if (!formData.tanggal.trim()) {
@@ -149,9 +258,15 @@ export function BookingForm({
       }
     }
 
-    const penumpangNum = parseInt(formData.penumpang, 10);
-    if (!formData.penumpang.trim() || Number.isNaN(penumpangNum) || penumpangNum < 1) {
-      nextErrors.penumpang = 'Jumlah penumpang minimal 1 orang.';
+    if (formData.jenisPerjalanan === 'AMBIL_ANTAR_PAKET') {
+      if (!formData.deskripsiPaket.trim()) {
+        nextErrors.deskripsiPaket = 'Detail paket & nama penerima wajib diisi.';
+      }
+    } else {
+      const penumpangNum = parseInt(formData.penumpang, 10);
+      if (!formData.penumpang.trim() || Number.isNaN(penumpangNum) || penumpangNum < 1) {
+        nextErrors.penumpang = 'Jumlah penumpang minimal 1 orang.';
+      }
     }
 
     if (!formData.nama.trim()) {
@@ -231,8 +346,13 @@ export function BookingForm({
       return;
     }
 
+    const normalizedData: BookingFormData =
+      formData.jenisPerjalanan === 'AMBIL_ANTAR_PAKET'
+        ? { ...formData, penumpang: '1' }
+        : formData;
+
     // Idempotensi: gunakan bookingId & bookingCode yang sama jika payload identik
-    const fingerprint = buildBookingFingerprint(formData, routeMetrics);
+    const fingerprint = buildBookingFingerprint(normalizedData, routeMetrics);
     const existingSubmission = activeSubmissionRef.current;
     const isSameSubmission =
       existingSubmission?.identifiers.fingerprint === fingerprint;
@@ -241,7 +361,7 @@ export function BookingForm({
       ? existingSubmission
       : {
           identifiers: createIdempotentBookingIdentifiers(fingerprint),
-          formData: { ...formData },
+          formData: { ...normalizedData },
           routeMetrics: null,
         };
 
@@ -258,7 +378,7 @@ export function BookingForm({
     }
 
     const message = buildWhatsAppMessage(
-      formData,
+      normalizedData,
       routeMetrics,
       submission.identifiers.bookingCode
     );
@@ -312,6 +432,7 @@ export function BookingForm({
   const isCharterOrRental =
     formData.jenisPerjalanan === 'CARTER' ||
     formData.jenisPerjalanan === 'RENTAL_SOPIR';
+  const isPackage = formData.jenisPerjalanan === 'AMBIL_ANTAR_PAKET';
 
   return (
     <section
@@ -333,30 +454,106 @@ export function BookingForm({
 
         <div className="bg-white rounded-2xl border border-emerald-950/10 shadow-xl shadow-forest-950/10 p-5 sm:p-7 lg:p-8">
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
-            {/* Jenis Perjalanan Selector */}
-            <div>
-              <span className="block text-xs sm:text-sm font-semibold text-forest-900 mb-2">
-                Jenis perjalanan <span className="text-grab-600">*</span>
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {TRIP_TYPE_OPTIONS.map((option) => {
-                  const active = formData.jenisPerjalanan === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => handleTripTypeChange(option.id)}
-                      className={`min-h-[40px] px-3 py-2 rounded-xl border text-xs font-display font-bold transition-colors cursor-pointer text-center ${
-                        active
-                          ? 'bg-forest-900 border-forest-900 text-white shadow-xs'
-                          : 'bg-forest-50/75 border-emerald-950/10 text-forest-900 hover:border-grab-500 hover:bg-emerald-50'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Jenis Layanan Click-to-Select Dropdown */}
+            <div ref={serviceDropdownRef} className="relative">
+              <label
+                htmlFor="btn-jenis-layanan"
+                className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
+              >
+                Jenis Layanan <span className="text-grab-600">*</span>
+              </label>
+
+              <button
+                id="btn-jenis-layanan"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isServiceMenuOpen}
+                onClick={() => setIsServiceMenuOpen((prev) => !prev)}
+                className={`w-full min-h-[54px] px-3.5 py-2.5 rounded-xl border bg-white text-left flex items-center justify-between gap-3 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-grab-500/30 ${
+                  isServiceMenuOpen
+                    ? 'border-grab-600 ring-2 ring-grab-500/20'
+                    : 'border-slate-300 hover:border-grab-500'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-9 h-9 rounded-lg bg-forest-900 text-white flex items-center justify-center shrink-0">
+                    <ServiceOptionIcon
+                      tripType={selectedServiceOption.id}
+                      className="w-4 h-4"
+                    />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-display font-bold text-sm sm:text-base text-forest-950 truncate">
+                      {selectedServiceOption.label}
+                    </div>
+                    <div className="text-xs text-slate-500 truncate">
+                      {selectedServiceOption.description}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0 text-xs font-display font-semibold text-grab-700">
+                  <span className="hidden sm:inline">Pilih Layanan</span>
+                  <ChevronDown
+                    className={`w-4 h-4 text-forest-800 transition-transform duration-150 ${
+                      isServiceMenuOpen ? 'rotate-180' : ''
+                    }`}
+                    aria-hidden="true"
+                  />
+                </div>
+              </button>
+
+              {isServiceMenuOpen && (
+                <div
+                  role="listbox"
+                  aria-label="Daftar pilihan Jenis Layanan"
+                  className="mt-2 rounded-xl border border-emerald-950/15 bg-white shadow-xl shadow-forest-950/10 p-1.5 space-y-1 z-30"
+                >
+                  {SERVICE_CHOICE_LIST.map((option) => {
+                    const active = formData.jenisPerjalanan === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        onClick={() => handleTripTypeChange(option.id)}
+                        className={`w-full min-h-[48px] px-3 py-2.5 rounded-lg text-left flex items-center justify-between gap-3 transition-colors cursor-pointer ${
+                          active
+                            ? 'bg-forest-50 text-forest-950 border border-grab-600/40'
+                            : 'hover:bg-slate-50 text-slate-800 border border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                              active
+                                ? 'bg-forest-900 text-white'
+                                : 'bg-forest-50 text-forest-800'
+                            }`}
+                          >
+                            <ServiceOptionIcon tripType={option.id} className="w-4 h-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-display font-bold text-xs sm:text-sm leading-snug text-forest-950">
+                              {option.label}
+                            </div>
+                            <div className="text-[11px] sm:text-xs text-slate-500 leading-snug">
+                              {option.description}
+                            </div>
+                          </div>
+                        </div>
+
+                        {active && (
+                          <span className="w-5 h-5 rounded-full bg-grab-600 text-white flex items-center justify-center shrink-0">
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" aria-hidden="true" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Pickup & Destination with Swap */}
@@ -366,7 +563,8 @@ export function BookingForm({
                   htmlFor="field-penjemputan"
                   className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
                 >
-                  Lokasi penjemputan <span className="text-grab-600">*</span>
+                  {isPackage ? 'Lokasi ambil paket' : 'Lokasi penjemputan'}{' '}
+                  <span className="text-grab-600">*</span>
                 </label>
                 <div className="relative">
                   <MapPin
@@ -378,7 +576,11 @@ export function BookingForm({
                     name="penjemputan"
                     type="text"
                     autoComplete="off"
-                    placeholder="Ketik nama tempat, alamat, atau bandara"
+                    placeholder={
+                      isPackage
+                        ? 'Ketik alamat pengambilan barang & nama pengirim'
+                        : 'Ketik nama tempat, alamat, atau bandara'
+                    }
                     value={formData.penjemputan}
                     onChange={(e) => {
                       onChange({
@@ -423,7 +625,11 @@ export function BookingForm({
                   htmlFor="field-tujuan"
                   className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
                 >
-                  {isCharterOrRental ? 'Area / tujuan utama' : 'Tujuan perjalanan'}{' '}
+                  {isPackage
+                    ? 'Lokasi antar paket'
+                    : isCharterOrRental
+                      ? 'Area / tujuan utama'
+                      : 'Tujuan perjalanan'}{' '}
                   <span className="text-grab-600">*</span>
                 </label>
                 <div className="relative">
@@ -436,7 +642,11 @@ export function BookingForm({
                     name="tujuan"
                     type="text"
                     autoComplete="off"
-                    placeholder="Ketik kota, alamat, atau destinasi tujuan"
+                    placeholder={
+                      isPackage
+                        ? 'Ketik alamat tujuan & nama penerima paket'
+                        : 'Ketik kota, alamat, atau destinasi tujuan'
+                    }
                     value={formData.tujuan}
                     onChange={(e) => {
                       onChange({
@@ -466,284 +676,358 @@ export function BookingForm({
               </div>
             </div>
 
-                {/* Tanggal & Jam Berangkat / Mulai */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="field-tanggal"
-                      className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
-                    >
-                      {isPP
-                        ? 'Tanggal keberangkatan'
-                        : isCharterOrRental
-                          ? 'Tanggal mulai'
-                          : 'Tanggal perjalanan'}{' '}
-                      <span className="text-grab-600">*</span>
-                    </label>
-                    <div className="relative">
-                      <Calendar
-                        className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                        aria-hidden="true"
-                      />
-                      <input
-                        id="field-tanggal"
-                        name="tanggal"
-                        type="date"
-                        min={todayISO}
-                        value={formData.tanggal}
-                        onChange={(e) => updateField('tanggal', e.target.value)}
-                        aria-invalid={Boolean(errors.tanggal)}
-                        aria-describedby={errors.tanggal ? 'err-tanggal' : undefined}
-                        className={`${inputBaseClass} ${getBorderClass(errors.tanggal)} tabular-nums`}
-                      />
-                    </div>
-                    {errors.tanggal && (
-                      <p id="err-tanggal" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span>{errors.tanggal}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="field-jam"
-                      className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
-                    >
-                      {isPP
-                        ? 'Jam keberangkatan'
-                        : isCharterOrRental
-                          ? 'Jam mulai'
-                          : 'Jam penjemputan'}{' '}
-                      <span className="text-grab-600">*</span>
-                    </label>
-                    <div className="relative">
-                      <Clock
-                        className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                        aria-hidden="true"
-                      />
-                      <input
-                        id="field-jam"
-                        name="jam"
-                        type="time"
-                        value={formData.jam}
-                        onChange={(e) => updateField('jam', e.target.value)}
-                        aria-invalid={Boolean(errors.jam)}
-                        aria-describedby={errors.jam ? 'err-jam' : undefined}
-                        className={`${inputBaseClass} ${getBorderClass(errors.jam)} tabular-nums`}
-                      />
-                    </div>
-                    {errors.jam && (
-                      <p id="err-jam" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span>{errors.jam}</span>
-                      </p>
-                    )}
-                  </div>
+            {/* Tanggal & Jam Berangkat / Mulai */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="field-tanggal"
+                  className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
+                >
+                  {isPackage
+                    ? 'Tanggal pengiriman'
+                    : isPP
+                      ? 'Tanggal keberangkatan'
+                      : isCharterOrRental
+                        ? 'Tanggal mulai'
+                        : 'Tanggal perjalanan'}{' '}
+                  <span className="text-grab-600">*</span>
+                </label>
+                <div className="relative">
+                  <Calendar
+                    className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="field-tanggal"
+                    name="tanggal"
+                    type="date"
+                    min={todayISO}
+                    value={formData.tanggal}
+                    onChange={(e) => updateField('tanggal', e.target.value)}
+                    aria-invalid={Boolean(errors.tanggal)}
+                    aria-describedby={errors.tanggal ? 'err-tanggal' : undefined}
+                    className={`${inputBaseClass} ${getBorderClass(errors.tanggal)} tabular-nums`}
+                  />
                 </div>
-
-                {/* Detail Tambahan: CARTER & RENTAL DENGAN SOPIR (Durasi Pemakaian saja) */}
-                {isCharterOrRental && (
-                  <div className="p-3.5 sm:p-4 rounded-xl bg-forest-50/75 border border-emerald-950/10 space-y-3">
-                    <div className="text-xs font-display font-bold text-forest-900">
-                      Detail {TRIP_TYPE_LABELS[formData.jenisPerjalanan]}
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="field-durasiPemakaian"
-                        className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
-                      >
-                        Durasi pemakaian <span className="text-grab-600">*</span>
-                      </label>
-                      <div className="relative">
-                        <Clock
-                          className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                          aria-hidden="true"
-                        />
-                        <input
-                          id="field-durasiPemakaian"
-                          name="durasiPemakaian"
-                          type="text"
-                          placeholder="Contoh: 12 Jam atau 2 Hari"
-                          value={formData.durasiPemakaian}
-                          onChange={(e) => updateField('durasiPemakaian', e.target.value)}
-                          aria-invalid={Boolean(errors.durasiPemakaian)}
-                          className={`${inputBaseClass} ${getBorderClass(errors.durasiPemakaian)}`}
-                        />
-                      </div>
-                      {errors.durasiPemakaian && (
-                        <p className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span>{errors.durasiPemakaian}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                {errors.tanggal && (
+                  <p id="err-tanggal" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>{errors.tanggal}</span>
+                  </p>
                 )}
+              </div>
 
-                {/* Jumlah Penumpang & Nomor WhatsApp */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="field-penumpang"
-                      className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
-                    >
-                      Jumlah penumpang <span className="text-grab-600">*</span>
-                    </label>
-                    <div className="flex items-stretch gap-2">
-                      <button
-                        type="button"
-                        onClick={() => adjustPassengers(-1)}
-                        aria-label="Kurangi jumlah penumpang"
-                        className="min-h-[48px] min-w-[44px] rounded-xl border border-slate-300 bg-forest-50 hover:bg-emerald-100/70 active:scale-[0.97] text-forest-900 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-grab-500"
-                      >
-                        <Minus className="w-4 h-4" aria-hidden="true" />
-                      </button>
-                      <div className="relative flex-1">
-                        <Users
-                          className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                          aria-hidden="true"
-                        />
-                        <input
-                          id="field-penumpang"
-                          name="penumpang"
-                          type="number"
-                          min={1}
-                          max={50}
-                          inputMode="numeric"
-                          value={formData.penumpang}
-                          onChange={(e) => updateField('penumpang', e.target.value)}
-                          aria-invalid={Boolean(errors.penumpang)}
-                          aria-describedby={errors.penumpang ? 'err-penumpang' : undefined}
-                          className={`${inputBaseClass} pl-9 pr-2 ${getBorderClass(errors.penumpang)} text-center font-semibold tabular-nums`}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => adjustPassengers(1)}
-                        aria-label="Tambah jumlah penumpang"
-                        className="min-h-[48px] min-w-[44px] rounded-xl border border-slate-300 bg-forest-50 hover:bg-emerald-100/70 active:scale-[0.97] text-forest-900 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-grab-500"
-                      >
-                        <Plus className="w-4 h-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                    {errors.penumpang && (
-                      <p id="err-penumpang" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span>{errors.penumpang}</span>
-                      </p>
-                    )}
-                  </div>
+              <div>
+                <label
+                  htmlFor="field-jam"
+                  className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
+                >
+                  {isPackage
+                    ? 'Jam ambil paket'
+                    : isPP
+                      ? 'Jam keberangkatan'
+                      : isCharterOrRental
+                        ? 'Jam mulai'
+                        : 'Jam penjemputan'}{' '}
+                  <span className="text-grab-600">*</span>
+                </label>
+                <div className="relative">
+                  <Clock
+                    className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="field-jam"
+                    name="jam"
+                    type="time"
+                    value={formData.jam}
+                    onChange={(e) => updateField('jam', e.target.value)}
+                    aria-invalid={Boolean(errors.jam)}
+                    aria-describedby={errors.jam ? 'err-jam' : undefined}
+                    className={`${inputBaseClass} ${getBorderClass(errors.jam)} tabular-nums`}
+                  />
+                </div>
+                {errors.jam && (
+                  <p id="err-jam" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>{errors.jam}</span>
+                  </p>
+                )}
+              </div>
+            </div>
 
-                  <div>
-                    <label
-                      htmlFor="field-whatsapp"
-                      className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
-                    >
-                      Nomor WhatsApp <span className="text-grab-600">*</span>
-                    </label>
-                    <div className="relative">
-                      <Phone
-                        className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                        aria-hidden="true"
-                      />
-                      <input
-                        id="field-whatsapp"
-                        name="whatsapp"
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        placeholder="081234567890"
-                        value={formData.whatsapp}
-                        onChange={(e) => updateField('whatsapp', e.target.value)}
-                        aria-invalid={Boolean(errors.whatsapp)}
-                        aria-describedby={errors.whatsapp ? 'err-whatsapp' : undefined}
-                        className={`${inputBaseClass} ${getBorderClass(errors.whatsapp)} tabular-nums`}
-                      />
-                    </div>
-                    {errors.whatsapp && (
-                      <p id="err-whatsapp" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span>{errors.whatsapp}</span>
-                      </p>
-                    )}
-                  </div>
+            {/* Detail Tambahan: CARTER & RENTAL DENGAN SOPIR (Durasi Pemakaian saja) */}
+            {isCharterOrRental && (
+              <div className="p-3.5 sm:p-4 rounded-xl bg-forest-50/75 border border-emerald-950/10 space-y-3">
+                <div className="text-xs font-display font-bold text-forest-900">
+                  Detail {TRIP_TYPE_LABELS[formData.jenisPerjalanan]}
                 </div>
 
-                {/* Nama Pemesan */}
                 <div>
                   <label
-                    htmlFor="field-nama"
+                    htmlFor="field-durasiPemakaian"
                     className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
                   >
-                    Nama pemesan <span className="text-grab-600">*</span>
+                    Durasi pemakaian <span className="text-grab-600">*</span>
                   </label>
                   <div className="relative">
-                    <User
+                    <Clock
                       className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
                       aria-hidden="true"
                     />
                     <input
-                      id="field-nama"
-                      name="nama"
+                      id="field-durasiPemakaian"
+                      name="durasiPemakaian"
                       type="text"
-                      autoComplete="name"
-                      placeholder="Contoh: Budi Santoso"
-                      value={formData.nama}
-                      onChange={(e) => updateField('nama', e.target.value)}
-                      aria-invalid={Boolean(errors.nama)}
-                      aria-describedby={errors.nama ? 'err-nama' : undefined}
-                      className={`${inputBaseClass} ${getBorderClass(errors.nama)}`}
+                      placeholder="Contoh: 12 Jam atau 2 Hari"
+                      value={formData.durasiPemakaian}
+                      onChange={(e) => updateField('durasiPemakaian', e.target.value)}
+                      aria-invalid={Boolean(errors.durasiPemakaian)}
+                      className={`${inputBaseClass} ${getBorderClass(errors.durasiPemakaian)}`}
                     />
                   </div>
-                  {errors.nama && (
-                    <p id="err-nama" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
+                  {errors.durasiPemakaian && (
+                    <p className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      <span>{errors.nama}</span>
+                      <span>{errors.durasiPemakaian}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Detail Paket (khusus AMBIL_ANTAR_PAKET) ATAU Jumlah Penumpang + Nomor WhatsApp */}
+            {isPackage ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="field-deskripsiPaket"
+                    className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
+                  >
+                    Detail Paket & Penerima <span className="text-grab-600">*</span>
+                  </label>
+                  <div className="relative">
+                    <Package
+                      className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                      aria-hidden="true"
+                    />
+                    <input
+                      id="field-deskripsiPaket"
+                      name="deskripsiPaket"
+                      type="text"
+                      placeholder="Contoh: 1 dus kue, penerima Ibu Rina (0812xxx)"
+                      value={formData.deskripsiPaket}
+                      onChange={(e) => updateField('deskripsiPaket', e.target.value)}
+                      aria-invalid={Boolean(errors.deskripsiPaket)}
+                      aria-describedby={errors.deskripsiPaket ? 'err-deskripsiPaket' : undefined}
+                      className={`${inputBaseClass} ${getBorderClass(errors.deskripsiPaket)}`}
+                    />
+                  </div>
+                  {errors.deskripsiPaket && (
+                    <p id="err-deskripsiPaket" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>{errors.deskripsiPaket}</span>
                     </p>
                   )}
                 </div>
 
-                {/* Catatan Tambahan */}
                 <div>
                   <label
-                    htmlFor="field-catatan"
+                    htmlFor="field-whatsapp"
                     className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
                   >
-                    Catatan tambahan <span className="font-normal text-slate-500">(opsional)</span>
+                    Nomor WhatsApp Pengirim <span className="text-grab-600">*</span>
                   </label>
                   <div className="relative">
-                    <FileText
-                      className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none"
+                    <Phone
+                      className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
                       aria-hidden="true"
                     />
-                    <textarea
-                      id="field-catatan"
-                      name="catatan"
-                      rows={2}
-                      placeholder="Contoh: Bawa 2 koper besar, jemput di lobby utama."
-                      value={formData.catatan}
-                      onChange={(e) => updateField('catatan', e.target.value)}
-                      className={`${inputBaseClass} min-h-[76px] pt-3 border-slate-300 hover:border-emerald-700/40 resize-y`}
+                    <input
+                      id="field-whatsapp"
+                      name="whatsapp"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="081234567890"
+                      value={formData.whatsapp}
+                      onChange={(e) => updateField('whatsapp', e.target.value)}
+                      aria-invalid={Boolean(errors.whatsapp)}
+                      aria-describedby={errors.whatsapp ? 'err-whatsapp' : undefined}
+                      className={`${inputBaseClass} ${getBorderClass(errors.whatsapp)} tabular-nums`}
                     />
                   </div>
+                  {errors.whatsapp && (
+                    <p id="err-whatsapp" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>{errors.whatsapp}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="field-penumpang"
+                    className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
+                  >
+                    Jumlah penumpang <span className="text-grab-600">*</span>
+                  </label>
+                  <div className="flex items-stretch gap-2">
+                    <button
+                      type="button"
+                      onClick={() => adjustPassengers(-1)}
+                      aria-label="Kurangi jumlah penumpang"
+                      className="min-h-[48px] min-w-[44px] rounded-xl border border-slate-300 bg-forest-50 hover:bg-emerald-100/70 active:scale-[0.97] text-forest-900 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-grab-500"
+                    >
+                      <Minus className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                    <div className="relative flex-1">
+                      <Users
+                        className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                        aria-hidden="true"
+                      />
+                      <input
+                        id="field-penumpang"
+                        name="penumpang"
+                        type="number"
+                        min={1}
+                        max={50}
+                        inputMode="numeric"
+                        value={formData.penumpang}
+                        onChange={(e) => updateField('penumpang', e.target.value)}
+                        aria-invalid={Boolean(errors.penumpang)}
+                        aria-describedby={errors.penumpang ? 'err-penumpang' : undefined}
+                        className={`${inputBaseClass} pl-9 pr-2 ${getBorderClass(errors.penumpang)} text-center font-semibold tabular-nums`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => adjustPassengers(1)}
+                      aria-label="Tambah jumlah penumpang"
+                      className="min-h-[48px] min-w-[44px] rounded-xl border border-slate-300 bg-forest-50 hover:bg-emerald-100/70 active:scale-[0.97] text-forest-900 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-grab-500"
+                    >
+                      <Plus className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                  {errors.penumpang && (
+                    <p id="err-penumpang" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>{errors.penumpang}</span>
+                    </p>
+                  )}
                 </div>
 
-                {/* Submit CTA */}
-                <div className="pt-1">
-                  <button
-                    type="submit"
-                    className="w-full min-h-[54px] px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#00A84B] to-[#008A3C] hover:from-[#009944] hover:to-[#007834] active:scale-[0.99] text-white font-display font-bold text-sm sm:text-base tracking-wide flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-md shadow-emerald-600/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-grab-500 focus-visible:ring-offset-2"
+                <div>
+                  <label
+                    htmlFor="field-whatsapp"
+                    className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
                   >
-                    <WhatsAppIcon className="w-6 h-6 shrink-0" />
-                    <span>KIRIM BOOKING VIA WHATSAPP</span>
-                  </button>
-                  <p className="mt-2.5 text-center text-xs text-slate-500">
-                    Booking akan dikonfirmasi oleh admin TripKita.
-                  </p>
+                    Nomor WhatsApp <span className="text-grab-600">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone
+                      className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                      aria-hidden="true"
+                    />
+                    <input
+                      id="field-whatsapp"
+                      name="whatsapp"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="081234567890"
+                      value={formData.whatsapp}
+                      onChange={(e) => updateField('whatsapp', e.target.value)}
+                      aria-invalid={Boolean(errors.whatsapp)}
+                      aria-describedby={errors.whatsapp ? 'err-whatsapp' : undefined}
+                      className={`${inputBaseClass} ${getBorderClass(errors.whatsapp)} tabular-nums`}
+                    />
+                  </div>
+                  {errors.whatsapp && (
+                    <p id="err-whatsapp" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>{errors.whatsapp}</span>
+                    </p>
+                  )}
                 </div>
-              </form>
+              </div>
+            )}
+
+            {/* Nama Pemesan */}
+            <div>
+              <label
+                htmlFor="field-nama"
+                className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
+              >
+                Nama pemesan <span className="text-grab-600">*</span>
+              </label>
+              <div className="relative">
+                <User
+                  className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  aria-hidden="true"
+                />
+                <input
+                  id="field-nama"
+                  name="nama"
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Contoh: Budi Santoso"
+                  value={formData.nama}
+                  onChange={(e) => updateField('nama', e.target.value)}
+                  aria-invalid={Boolean(errors.nama)}
+                  aria-describedby={errors.nama ? 'err-nama' : undefined}
+                  className={`${inputBaseClass} ${getBorderClass(errors.nama)}`}
+                />
+              </div>
+              {errors.nama && (
+                <p id="err-nama" className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>{errors.nama}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Catatan Tambahan */}
+            <div>
+              <label
+                htmlFor="field-catatan"
+                className="block text-xs sm:text-sm font-semibold text-forest-900 mb-1.5"
+              >
+                Catatan tambahan <span className="font-normal text-slate-500">(opsional)</span>
+              </label>
+              <div className="relative">
+                <FileText
+                  className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none"
+                  aria-hidden="true"
+                />
+                <textarea
+                  id="field-catatan"
+                  name="catatan"
+                  rows={2}
+                  placeholder="Contoh: Bawa 2 koper besar, jemput di lobby utama."
+                  value={formData.catatan}
+                  onChange={(e) => updateField('catatan', e.target.value)}
+                  className={`${inputBaseClass} min-h-[76px] pt-3 border-slate-300 hover:border-emerald-700/40 resize-y`}
+                />
+              </div>
+            </div>
+
+            {/* Submit CTA */}
+            <div className="pt-1">
+              <button
+                type="submit"
+                className="w-full min-h-[54px] px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#00A84B] to-[#008A3C] hover:from-[#009944] hover:to-[#007834] active:scale-[0.99] text-white font-display font-bold text-sm sm:text-base tracking-wide flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-md shadow-emerald-600/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-grab-500 focus-visible:ring-offset-2"
+              >
+                <WhatsAppIcon className="w-6 h-6 shrink-0" />
+                <span>KIRIM BOOKING VIA WHATSAPP</span>
+              </button>
+              <p className="mt-2.5 text-center text-xs text-slate-500">
+                Booking akan dikonfirmasi oleh admin TripKita.
+              </p>
+            </div>
+          </form>
 
           {/* Confirmation Fallback Panel (Zero tariffs displayed) */}
           {submittedPayload && (

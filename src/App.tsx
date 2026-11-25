@@ -3,15 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { BookingForm } from './components/BookingForm';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Footer } from './components/Footer';
 import { HeroSection } from './components/HeroSection';
-import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { PartnerPortalPage } from './pages/PartnerPortalPage';
-import { BookingFormData, INITIAL_BOOKING_FORM_DATA } from './types/booking';
+import { BookingFormData, INITIAL_BOOKING_FORM_DATA, TRIP_TYPE_LABELS, TripType } from './types/booking';
+
+const AdminDashboardPage = lazy(() =>
+  import('./pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage }))
+);
+const PartnerPortalPage = lazy(() =>
+  import('./pages/PartnerPortalPage').then((m) => ({ default: m.PartnerPortalPage }))
+);
 
 const BOOKING_DRAFT_STORAGE_KEY = 'tripkita_booking_draft_v1';
 
@@ -20,9 +25,14 @@ function loadSavedBookingDraft(): BookingFormData {
     const raw = window.localStorage.getItem(BOOKING_DRAFT_STORAGE_KEY);
     if (!raw) return INITIAL_BOOKING_FORM_DATA;
     const parsed = JSON.parse(raw) as Partial<BookingFormData>;
+    const validTripType: TripType =
+      parsed.jenisPerjalanan && parsed.jenisPerjalanan in TRIP_TYPE_LABELS
+        ? (parsed.jenisPerjalanan as TripType)
+        : INITIAL_BOOKING_FORM_DATA.jenisPerjalanan;
     return {
       ...INITIAL_BOOKING_FORM_DATA,
       ...parsed,
+      jenisPerjalanan: validTripType,
     };
   } catch {
     return INITIAL_BOOKING_FORM_DATA;
@@ -57,12 +67,20 @@ export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<CustomerHomePage />} />
-          <Route path="/mitra" element={<PartnerPortalPage />} />
-          <Route path="/admin" element={<AdminDashboardPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <div className="min-h-screen bg-[#F6FAF8] flex items-center justify-center text-sm font-medium text-forest-900">
+              Memuat halaman...
+            </div>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<CustomerHomePage />} />
+            <Route path="/mitra" element={<PartnerPortalPage />} />
+            <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </ErrorBoundary>
   );

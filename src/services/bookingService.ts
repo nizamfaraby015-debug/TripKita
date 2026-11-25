@@ -13,6 +13,7 @@ import {
   LatLngLiteral,
   PLATFORM_COMMISSION_RATE,
   RouteMetrics,
+  TripDetailsPayload,
   calculateInternalFare,
   formatDurationId,
 } from '../types/booking';
@@ -101,6 +102,10 @@ export function buildBookingFingerprint(
       data.jenisPerjalanan === 'CARTER' || data.jenisPerjalanan === 'RENTAL_SOPIR'
         ? data.durasiPemakaian.trim()
         : '',
+    deskripsiPaket:
+      data.jenisPerjalanan === 'AMBIL_ANTAR_PAKET'
+        ? data.deskripsiPaket.trim()
+        : '',
     distanceMeters: routeMetrics?.distanceMeters ?? null,
     durationMillis: routeMetrics?.durationMillis ?? null,
   });
@@ -167,13 +172,20 @@ export function buildBookingDocumentPayload(
       ? calculateInternalFare(routeMetrics.distanceMeters)
       : calculateInternalFare(0);
 
-  const tripDetails =
-    formData.jenisPerjalanan === 'CARTER' ||
+  const tripDetails: TripDetailsPayload = {
+    ...(formData.jenisPerjalanan === 'CARTER' ||
     formData.jenisPerjalanan === 'RENTAL_SOPIR'
       ? {
           rentalDuration: formData.durasiPemakaian.trim().slice(0, 80),
         }
-      : {};
+      : {}),
+    ...(formData.jenisPerjalanan === 'AMBIL_ANTAR_PAKET' &&
+    formData.deskripsiPaket.trim()
+      ? {
+          packageDetails: formData.deskripsiPaket.trim().slice(0, 300),
+        }
+      : {}),
+  };
 
   return {
     bookingId: identifiers.bookingId,

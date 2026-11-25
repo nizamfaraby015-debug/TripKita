@@ -49,6 +49,9 @@ export const WHATSAPP_TEMPLATE_LIST: WhatsAppTemplateMeta[] = [
 
 function buildTripDetailLinesForBooking(b: OperationalBookingRecord): string[] {
   const lines: string[] = [];
+  if (b.tripDetails.packageDetails) {
+    lines.push(`Detail Paket & Penerima: ${b.tripDetails.packageDetails}`);
+  }
   if (b.tripType === 'ANTAR_TUNGGU') {
     if (b.tripDetails.waitDuration) {
       lines.push(`Perkiraan Durasi Tunggu: ${b.tripDetails.waitDuration}`);

@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Search,
   Send,
+  Trash2,
   UserCheck,
   XCircle,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ interface BookingManagementSectionProps {
     agreedFareRp: number
   ) => { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>;
   onCancelBooking: (bookingId: string, reason: string) => void;
+  onDeleteBooking: (bookingId: string) => void | Promise<void>;
   onJumpToAssignment: (bookingId: string) => void;
 }
 
@@ -53,6 +55,7 @@ export function AdminBookingsSection({
   onFiltersChange,
   onConfirmBooking,
   onCancelBooking,
+  onDeleteBooking,
   onJumpToAssignment,
 }: BookingManagementSectionProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -60,6 +63,10 @@ export function AdminBookingsSection({
   );
   const [fareInput, setFareInput] = useState<string>('');
   const [cancelReason, setCancelReason] = useState<string>('');
+  const [confirmDeleteBookingId, setConfirmDeleteBookingId] = useState<string | null>(
+    null
+  );
+  const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -110,6 +117,7 @@ export function AdminBookingsSection({
       String(b.agreedFareRp > 0 ? b.agreedFareRp : b.internalEstimatedFareRp)
     );
     setCancelReason('');
+    setConfirmDeleteBookingId(null);
     setFeedback(null);
   };
 
@@ -147,6 +155,21 @@ export function AdminBookingsSection({
       text: `Booking ${selectedBooking.bookingCode} ditandai DIBATALKAN.`,
     });
     setCancelReason('');
+  };
+
+  const handleConfirmDeleteBooking = async (booking: OperationalBookingRecord) => {
+    setDeletingBookingId(booking.bookingId);
+    try {
+      await onDeleteBooking(booking.bookingId);
+      setConfirmDeleteBookingId(null);
+      setSelectedId(null);
+      setFeedback({
+        type: 'success',
+        text: `Booking ${booking.bookingCode} berhasil dihapus permanen.`,
+      });
+    } finally {
+      setDeletingBookingId(null);
+    }
   };
 
   return (
@@ -378,6 +401,15 @@ export function AdminBookingsSection({
                 </div>
 
                 {/* Detail Kondisional Jenis Perjalanan */}
+                {selectedBooking.tripDetails.packageDetails && (
+                  <div className="pt-1.5 mt-1.5 border-t border-emerald-950/10 space-y-1 text-forest-900">
+                    <div>
+                      <strong>Detail Paket &amp; Penerima:</strong>{' '}
+                      {selectedBooking.tripDetails.packageDetails}
+                    </div>
+                  </div>
+                )}
+
                 {selectedBooking.tripType === 'ANTAR_TUNGGU' &&
                   (selectedBooking.tripDetails.waitDuration ||
                     selectedBooking.tripDetails.waitMode ||
@@ -552,6 +584,50 @@ export function AdminBookingsSection({
                     </div>
                   </div>
                 )}
+
+              <div className="pt-3 border-t border-slate-100">
+                {confirmDeleteBookingId === selectedBooking.bookingId ? (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 space-y-2.5">
+                    <p className="text-xs text-red-900 font-medium leading-relaxed">
+                      Hapus permanen booking fiktif{' '}
+                      <strong className="font-mono">{selectedBooking.bookingCode}</strong> (
+                      {selectedBooking.customerName}) dari database? Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={deletingBookingId === selectedBooking.bookingId}
+                        onClick={() => void handleConfirmDeleteBooking(selectedBooking)}
+                        className="min-h-[36px] px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-display font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>
+                          {deletingBookingId === selectedBooking.bookingId
+                            ? 'Menghapus...'
+                            : 'Ya, Hapus Permanen'}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingBookingId === selectedBooking.bookingId}
+                        onClick={() => setConfirmDeleteBookingId(null)}
+                        className="min-h-[36px] px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-display font-semibold text-xs cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteBookingId(selectedBooking.bookingId)}
+                    className="w-full min-h-[38px] px-3 py-2 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100 text-red-700 font-display font-bold text-xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Hapus Booking Fiktif</span>
+                  </button>
+                )}
+              </div>
 
               {feedback && (
                 <div

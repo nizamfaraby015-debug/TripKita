@@ -1,6 +1,7 @@
 import {
   Timestamp,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   onSnapshot,
@@ -607,6 +608,78 @@ export async function verifyPartnerFirestore(
   }
 }
 
+export function canDeletePartner(partner: PartnerRegistration): boolean {
+  return partner.status === 'DITOLAK' || partner.availability === 'TIDAK_TERSEDIA';
+}
+
+export async function updatePartnerAvailabilityFirestore(
+  partner: PartnerRegistration,
+  availability: VehicleAvailability
+): Promise<void> {
+  const firestore = requireFirestore();
+  const partnerPath = `partners/${partner.id}`;
+
+  try {
+    const statusRef = doc(firestore, 'partner_status', partner.registrationNumber);
+    const existingStatusSnap = await getDoc(statusRef);
+
+    const batch = writeBatch(firestore);
+    batch.update(doc(firestore, 'partners', partner.id), {
+      availability,
+      updatedAt: serverTimestamp(),
+    });
+
+    if (existingStatusSnap.exists()) {
+      batch.update(statusRef, {
+        availability,
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      batch.set(statusRef, {
+        registrationNumber: partner.registrationNumber,
+        status: partner.status,
+        partnershipType: partner.partnershipType,
+        services: partner.services.slice(0, 6),
+        vehicleBrandType: partner.vehicleBrandType.slice(0, 120),
+        availability,
+        ...(partner.rejectionReason
+          ? { rejectionReason: partner.rejectionReason.slice(0, 300) }
+          : {}),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, partnerPath);
+  }
+}
+
+export async function deletePartnerFirestore(
+  partner: PartnerRegistration
+): Promise<void> {
+  if (!canDeletePartner(partner)) {
+    throw new Error(
+      'Hanya mitra yang berstatus Ditolak atau Tidak Aktif (Tidak Tersedia) yang dapat dihapus.'
+    );
+  }
+
+  const firestore = requireFirestore();
+  const partnerPath = `partners/${partner.id}`;
+
+  try {
+    const batch = writeBatch(firestore);
+    batch.delete(doc(firestore, 'partners', partner.id));
+    if (partner.registrationNumber.trim()) {
+      batch.delete(doc(firestore, 'partner_status', partner.registrationNumber.trim()));
+    }
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, partnerPath);
+  }
+}
+
 export async function offerBookingToPartnerFirestore(
   booking: OperationalBookingRecord,
   partner: PartnerRegistration
@@ -889,6 +962,16 @@ export async function cancelBookingFirestore(
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function deleteBookingFirestore(bookingId: string): Promise<void> {
+  const firestore = requireFirestore();
+  const path = `bookings/${bookingId}`;
+  try {
+    await deleteDoc(doc(firestore, 'bookings', bookingId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 

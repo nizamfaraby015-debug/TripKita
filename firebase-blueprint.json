@@ -37,7 +37,15 @@
         },
         "tripType": {
           "type": "string",
-          "enum": ["SEKALI_JALAN", "ANTAR_TUNGGU", "PULANG_PERGI", "CARTER", "RENTAL_SOPIR"]
+          "enum": [
+            "SEKALI_JALAN",
+            "ANTAR_TUNGGU",
+            "PULANG_PERGI",
+            "CARTER",
+            "RENTAL_SOPIR",
+            "LIBURAN_KELUARGA",
+            "AMBIL_ANTAR_PAKET"
+          ]
         },
         "tripDetails": {
           "type": "object",

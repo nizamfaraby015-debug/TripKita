@@ -19,6 +19,7 @@ import {
   Receipt,
   Search,
   ShieldCheck,
+  Trash2,
   Users,
   Wallet,
   X,
@@ -52,10 +53,13 @@ import {
 } from '../services/authService';
 import {
   assignPartnerConfirmedFirestore,
+  canDeletePartner,
   cancelBookingFirestore,
   completeTripFirestore,
   confirmBookingByAdminFirestore,
   createWeeklyDepositFirestore,
+  deleteBookingFirestore,
+  deletePartnerFirestore,
   loadCommissionSettingsFirestore,
   offerBookingToPartnerFirestore,
   respondPartnerOfferFirestore,
@@ -66,6 +70,7 @@ import {
   subscribePartnersFirestore,
   subscribeWeeklyDepositsFirestore,
   updateCashTransactionFirestore,
+  updatePartnerAvailabilityFirestore,
   upsertImportedBookingsFirestore,
   verifyPartnerFirestore,
   verifyWeeklyDepositFirestore,
@@ -89,6 +94,7 @@ import {
   PartnerRegistration,
   PartnerVerificationStatus,
   VEHICLE_AVAILABILITY_LABELS,
+  VehicleAvailability,
   WeeklyCommissionDeposit,
 } from '../types/partner';
 
@@ -148,13 +154,17 @@ export function AdminDashboardPage() {
 
   // Verifikasi & Data Mitra state
   const [partnerFilter, setPartnerFilter] = useState<
-    'ALL' | PartnerVerificationStatus
+    'ALL' | PartnerVerificationStatus | 'TIDAK_AKTIF'
   >('ALL');
   const [partnerSearch, setPartnerSearch] = useState('');
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(
     null
   );
   const [rejectionInput, setRejectionInput] = useState('');
+  const [confirmDeletePartnerId, setConfirmDeletePartnerId] = useState<string | null>(
+    null
+  );
+  const [deletingPartnerId, setDeletingPartnerId] = useState<string | null>(null);
 
   // Filters Booking Pelanggan
   const [bookingFilters, setBookingFilters] = useState<{
@@ -266,7 +276,9 @@ export function AdminDashboardPage() {
     ).length;
 
     const totalMitra = partners.length;
-    const mitraAktif = approvedPartners.length;
+    const mitraAktif = approvedPartners.filter(
+      (p) => p.availability !== 'TIDAK_TERSEDIA'
+    ).length;
     const mitraPending = partners.filter(
       (p) => p.status === 'MENUNGGU_VERIFIKASI'
     ).length;
@@ -301,7 +313,9 @@ export function AdminDashboardPage() {
   const filteredPartners = useMemo(() => {
     const query = partnerSearch.trim().toLowerCase();
     return partners.filter((p) => {
-      if (partnerFilter !== 'ALL' && p.status !== partnerFilter) {
+      if (partnerFilter === 'TIDAK_AKTIF') {
+        if (p.availability !== 'TIDAK_TERSEDIA') return false;
+      } else if (partnerFilter !== 'ALL' && p.status !== partnerFilter) {
         return false;
       }
       if (!query) return true;
@@ -388,6 +402,33 @@ export function AdminDashboardPage() {
     );
     if (nextStatus !== 'DITOLAK') {
       setRejectionInput('');
+    }
+  };
+
+  const handleUpdatePartnerAvailability = (
+    partner: PartnerRegistration,
+    nextAvailability: VehicleAvailability
+  ) => {
+    void runMutation(
+      () => updatePartnerAvailabilityFirestore(partner, nextAvailability),
+      `Ketersediaan mitra ${partner.fullName} diperbarui menjadi ${VEHICLE_AVAILABILITY_LABELS[nextAvailability]}.`
+    );
+  };
+
+  const handleDeletePartner = async (partner: PartnerRegistration) => {
+    if (!canDeletePartner(partner)) return;
+    setDeletingPartnerId(partner.id);
+    try {
+      await runMutation(
+        () => deletePartnerFirestore(partner),
+        `Data mitra ${partner.fullName} (${partner.registrationNumber}) berhasil dihapus permanen.`
+      );
+      setConfirmDeletePartnerId(null);
+      if (selectedPartnerId === partner.id) {
+        setSelectedPartnerId(null);
+      }
+    } finally {
+      setDeletingPartnerId(null);
     }
   };
 
@@ -872,6 +913,14 @@ export function AdminDashboardPage() {
                 if (!target) return;
                 void runMutation(() => cancelBookingFirestore(target, reason));
               }}
+              onDeleteBooking={async (bookingId) => {
+                const target = bookings.find((b) => b.bookingId === bookingId);
+                if (!target) return;
+                await runMutation(
+                  () => deleteBookingFirestore(bookingId),
+                  `Booking fiktif ${target.bookingCode} berhasil dihapus permanen.`
+                );
+              }}
               onJumpToAssignment={(bookingId) => {
                 setAssignmentFocusBookingId(bookingId);
                 setActiveTab('penugasan');
@@ -910,40 +959,110 @@ export function AdminDashboardPage() {
                       <th className="py-2.5 pr-4 font-semibold text-right">Kapasitas</th>
                       <th className="py-2.5 pr-4 font-semibold">Area Operasional</th>
                       <th className="py-2.5 pr-4 font-semibold">Ketersediaan</th>
-                      <th className="py-2.5 font-semibold">Status</th>
+                      <th className="py-2.5 pr-4 font-semibold">Status</th>
+                      <th className="py-2.5 font-semibold text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {partners.map((p) => (
-                      <tr key={p.id} className="hover:bg-forest-50/40">
-                        <td className="py-3 pr-4 whitespace-nowrap">
-                          <div className="font-semibold text-forest-900">
-                            {p.fullName}
-                          </div>
-                          <div className="text-[11px] font-mono text-slate-500">
-                            {p.registrationNumber} · {p.whatsapp}
-                          </div>
-                        </td>
-                        <td className="py-3 pr-4 text-slate-800 whitespace-nowrap">
-                          {p.vehicleBrandType} ({p.vehicleYear})
-                        </td>
-                        <td className="py-3 pr-4 font-mono text-xs text-slate-800 whitespace-nowrap">
-                          {p.licensePlate}
-                        </td>
-                        <td className="py-3 pr-4 text-right tabular-nums whitespace-nowrap">
-                          {p.passengerCapacity} org
-                        </td>
-                        <td className="py-3 pr-4 text-slate-600 max-w-[220px] truncate">
-                          {p.operationalArea}
-                        </td>
-                        <td className="py-3 pr-4 text-xs font-semibold text-slate-700 whitespace-nowrap">
-                          {VEHICLE_AVAILABILITY_LABELS[p.availability]}
-                        </td>
-                        <td className="py-3 whitespace-nowrap">
-                          {renderStatusPill(p.status)}
-                        </td>
-                      </tr>
-                    ))}
+                    {partners.map((p) => {
+                      const deletable = canDeletePartner(p);
+                      const isConfirming = confirmDeletePartnerId === p.id;
+                      const isDeleting = deletingPartnerId === p.id;
+                      return (
+                        <tr key={p.id} className="hover:bg-forest-50/40">
+                          <td className="py-3 pr-4 whitespace-nowrap">
+                            <div className="font-semibold text-forest-900">
+                              {p.fullName}
+                            </div>
+                            <div className="text-[11px] font-mono text-slate-500">
+                              {p.registrationNumber} · {p.whatsapp}
+                            </div>
+                          </td>
+                          <td className="py-3 pr-4 text-slate-800 whitespace-nowrap">
+                            {p.vehicleBrandType} ({p.vehicleYear})
+                          </td>
+                          <td className="py-3 pr-4 font-mono text-xs text-slate-800 whitespace-nowrap">
+                            {p.licensePlate}
+                          </td>
+                          <td className="py-3 pr-4 text-right tabular-nums whitespace-nowrap">
+                            {p.passengerCapacity} org
+                          </td>
+                          <td className="py-3 pr-4 text-slate-600 max-w-[200px] truncate">
+                            {p.operationalArea}
+                          </td>
+                          <td className="py-3 pr-4 whitespace-nowrap">
+                            <select
+                              aria-label={`Ketersediaan ${p.fullName}`}
+                              value={p.availability}
+                              onChange={(e) =>
+                                handleUpdatePartnerAvailability(
+                                  p,
+                                  e.target.value as VehicleAvailability
+                                )
+                              }
+                              className="min-h-[32px] px-2 py-1 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:border-grab-600"
+                            >
+                              {(
+                                Object.keys(
+                                  VEHICLE_AVAILABILITY_LABELS
+                                ) as VehicleAvailability[]
+                              ).map((avail) => (
+                                <option key={avail} value={avail}>
+                                  {VEHICLE_AVAILABILITY_LABELS[avail]}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-3 pr-4 whitespace-nowrap">
+                            {renderStatusPill(p.status)}
+                          </td>
+                          <td className="py-3 text-right whitespace-nowrap">
+                            {deletable ? (
+                              isConfirming ? (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    disabled={isDeleting}
+                                    onClick={() => void handleDeletePartner(p)}
+                                    className="min-h-[30px] px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-display font-bold text-xs cursor-pointer"
+                                  >
+                                    {isDeleting ? 'Menghapus...' : 'Ya, Hapus'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isDeleting}
+                                    onClick={() => setConfirmDeletePartnerId(null)}
+                                    className="min-h-[30px] px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer"
+                                  >
+                                    Batal
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeletePartnerId(p.id)}
+                                  className="min-h-[32px] px-2.5 py-1 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-display font-bold text-xs inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                  <span>Hapus</span>
+                                </button>
+                              )
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedPartnerId(p.id);
+                                  setActiveTab('verifikasi-mitra');
+                                }}
+                                className="min-h-[32px] px-2.5 py-1 rounded-lg bg-forest-50 hover:bg-forest-100 text-forest-900 font-display font-semibold text-xs cursor-pointer"
+                              >
+                                Tinjau
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -975,6 +1094,7 @@ export function AdminDashboardPage() {
                         { id: 'MENUNGGU_VERIFIKASI', label: 'Menunggu' },
                         { id: 'DISETUJUI', label: 'Disetujui' },
                         { id: 'DITOLAK', label: 'Ditolak' },
+                        { id: 'TIDAK_AKTIF', label: 'Tidak Aktif' },
                       ] as const
                     ).map((f) => (
                       <button
@@ -1003,6 +1123,7 @@ export function AdminDashboardPage() {
                         onClick={() => {
                           setSelectedPartnerId(partner.id);
                           setRejectionInput(partner.rejectionReason ?? '');
+                          setConfirmDeletePartnerId(null);
                         }}
                         className={`w-full text-left py-3.5 px-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer ${
                           isSelected ? 'bg-forest-50' : 'hover:bg-slate-50'
@@ -1085,6 +1206,36 @@ export function AdminDashboardPage() {
                     </div>
 
                     <div className="pt-3 border-t border-slate-100 space-y-3">
+                      <div>
+                        <label
+                          htmlFor="partner-availability-select"
+                          className="block text-xs font-semibold text-slate-700 mb-1"
+                        >
+                          Keaktifan / Ketersediaan Armada
+                        </label>
+                        <select
+                          id="partner-availability-select"
+                          value={selectedPartner.availability}
+                          onChange={(e) =>
+                            handleUpdatePartnerAvailability(
+                              selectedPartner,
+                              e.target.value as VehicleAvailability
+                            )
+                          }
+                          className="w-full min-h-[40px] px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-forest-900 focus:outline-none focus:border-grab-600"
+                        >
+                          {(
+                            Object.keys(
+                              VEHICLE_AVAILABILITY_LABELS
+                            ) as VehicleAvailability[]
+                          ).map((avail) => (
+                            <option key={avail} value={avail}>
+                              {VEHICLE_AVAILABILITY_LABELS[avail]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
                       <input
                         type="text"
                         placeholder="Catatan penolakan (jika ditolak)..."
@@ -1124,6 +1275,65 @@ export function AdminDashboardPage() {
                           Menunggu
                         </button>
                       </div>
+
+                      {canDeletePartner(selectedPartner) ? (
+                        <div className="pt-2 border-t border-slate-100">
+                          {confirmDeletePartnerId === selectedPartner.id ? (
+                            <div className="p-3 rounded-xl bg-red-50 border border-red-200 space-y-2.5">
+                              <p className="text-xs text-red-900 font-medium leading-relaxed">
+                                Hapus permanen data mitra{' '}
+                                <strong>{selectedPartner.fullName}</strong> (
+                                <span className="font-mono">
+                                  {selectedPartner.registrationNumber}
+                                </span>
+                                ) dari database?
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={deletingPartnerId === selectedPartner.id}
+                                  onClick={() =>
+                                    void handleDeletePartner(selectedPartner)
+                                  }
+                                  className="min-h-[36px] px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-display font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                  <span>
+                                    {deletingPartnerId === selectedPartner.id
+                                      ? 'Menghapus...'
+                                      : 'Ya, Hapus Permanen'}
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={deletingPartnerId === selectedPartner.id}
+                                  onClick={() => setConfirmDeletePartnerId(null)}
+                                  className="min-h-[36px] px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-display font-semibold text-xs cursor-pointer"
+                                >
+                                  Batal
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setConfirmDeletePartnerId(selectedPartner.id)
+                              }
+                              className="w-full min-h-[38px] px-3 py-2 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100 text-red-700 font-display font-bold text-xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                              <span>Hapus Mitra (Ditolak / Tidak Aktif)</span>
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-500">
+                          Untuk menghapus mitra ini, ubah keaktifan ke{' '}
+                          <strong>Tidak Aktif / Tidak Tersedia</strong> atau status ke{' '}
+                          <strong>Ditolak</strong>.
+                        </p>
+                      )}
                     </div>
                   </div>
                 ) : (

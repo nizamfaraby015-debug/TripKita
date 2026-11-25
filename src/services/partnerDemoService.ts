@@ -12,6 +12,7 @@ import {
   OperationalBookingRecord,
   PLATFORM_COMMISSION_RATE,
   RouteMetrics,
+  TripDetailsPayload,
   calculateInternalFare,
   formatDurationId,
 } from '../types/booking';
@@ -283,13 +284,20 @@ export function recordDemoBookingFromForm(params: {
       ? calculateInternalFare(routeMetrics.distanceMeters)
       : calculateInternalFare(0);
 
-  const tripDetails =
-    formData.jenisPerjalanan === 'CARTER' ||
+  const tripDetails: TripDetailsPayload = {
+    ...(formData.jenisPerjalanan === 'CARTER' ||
     formData.jenisPerjalanan === 'RENTAL_SOPIR'
       ? {
-          rentalDuration: formData.durasiPemakaian.trim(),
+          rentalDuration: formData.durasiPemakaian.trim().slice(0, 80),
         }
-      : {};
+      : {}),
+    ...(formData.jenisPerjalanan === 'AMBIL_ANTAR_PAKET' &&
+    formData.deskripsiPaket.trim()
+      ? {
+          packageDetails: formData.deskripsiPaket.trim().slice(0, 300),
+        }
+      : {}),
+  };
 
   const record: OperationalBookingRecord = {
     bookingId: params.bookingId,

@@ -418,9 +418,15 @@ function stripFormulaEscape(val: string): string {
 
 function resolveTripTypeFromLabel(raw: string): TripType {
   const upper = raw.trim().toUpperCase();
-  if (upper.includes('TUNGGU')) return 'ANTAR_TUNGGU';
+  if (upper.includes('AMBIL') && upper.includes('PAKET')) {
+    return 'AMBIL_ANTAR_PAKET';
+  }
+  if (upper.includes('TUNGGU') || upper.includes('SEKOLAH') || upper.includes('ANAK')) {
+    return 'ANTAR_TUNGGU';
+  }
   if (upper.includes('PULANG') || upper === 'PP') return 'PULANG_PERGI';
-  if (upper.includes('CARTER')) return 'CARTER';
+  if (upper.includes('CARTER') || upper.includes('PENDAMPINGAN')) return 'CARTER';
+  if (upper.includes('LIBURAN')) return 'LIBURAN_KELUARGA';
   if (upper.includes('RENTAL')) return 'RENTAL_SOPIR';
   return 'SEKALI_JALAN';
 }

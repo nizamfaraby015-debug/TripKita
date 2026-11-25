@@ -8,19 +8,23 @@ export const PLATFORM_COMMISSION_RATE = 0.1; // Komisi resmi TripKita 10% dari T
 
 export type TripType =
   | 'SEKALI_JALAN'
-  | 'ANTAR_TUNGGU'
   | 'PULANG_PERGI'
+  | 'RENTAL_SOPIR'
+  | 'ANTAR_TUNGGU'
   | 'CARTER'
-  | 'RENTAL_SOPIR';
+  | 'LIBURAN_KELUARGA'
+  | 'AMBIL_ANTAR_PAKET';
 
 export type WaitMode = 'TUNGGU_DI_LOKASI' | 'JEMPUT_KEMBALI';
 
 export const TRIP_TYPE_LABELS: Record<TripType, string> = {
   SEKALI_JALAN: 'Sekali Jalan',
-  ANTAR_TUNGGU: 'Antar & Tunggu',
   PULANG_PERGI: 'Pulang Pergi (PP)',
-  CARTER: 'Carter',
   RENTAL_SOPIR: 'Rental dengan Sopir',
+  ANTAR_TUNGGU: 'Layanan Antar Jemput Anak Sekolah',
+  CARTER: 'Layanan Pendampingan Keluarga',
+  LIBURAN_KELUARGA: 'Layanan Liburan Keluarga',
+  AMBIL_ANTAR_PAKET: 'Layanan Ambil & Antar Paket',
 };
 
 export const WAIT_MODE_LABELS: Record<WaitMode, string> = {
@@ -62,6 +66,8 @@ export interface BookingFormData {
   // Khusus CARTER & RENTAL_SOPIR
   durasiPemakaian: string;
   keteranganKebutuhan: string;
+  // Khusus AMBIL_ANTAR_PAKET
+  deskripsiPaket: string;
 }
 
 export const INITIAL_BOOKING_FORM_DATA: BookingFormData = {
@@ -85,6 +91,7 @@ export const INITIAL_BOOKING_FORM_DATA: BookingFormData = {
   lokasiPulang: '',
   durasiPemakaian: '',
   keteranganKebutuhan: '',
+  deskripsiPaket: '',
 };
 
 export type BookingFormErrorKey =
@@ -102,7 +109,8 @@ export type BookingFormErrorKey =
   | 'jamPulang'
   | 'lokasiPulang'
   | 'durasiPemakaian'
-  | 'keteranganKebutuhan';
+  | 'keteranganKebutuhan'
+  | 'deskripsiPaket';
 
 export type BookingFormErrors = Partial<Record<BookingFormErrorKey, string>>;
 
@@ -161,6 +169,9 @@ export function buildTripDetailsSummaryLines(data: BookingFormData): string[] {
   ) {
     lines.push(`Durasi Pemakaian: ${data.durasiPemakaian.trim() || '-'}`);
   }
+  if (data.jenisPerjalanan === 'AMBIL_ANTAR_PAKET' && data.deskripsiPaket.trim()) {
+    lines.push(`Detail Paket & Penerima: ${data.deskripsiPaket.trim()}`);
+  }
   return lines;
 }
 
@@ -172,6 +183,7 @@ export function buildWhatsAppMessage(
   const formattedDate = formatIndonesianDate(data.tanggal);
   const catatanText = data.catatan.trim() ? data.catatan.trim() : '-';
   const tripLabel = TRIP_TYPE_LABELS[data.jenisPerjalanan] || 'Sekali Jalan';
+  const isPackage = data.jenisPerjalanan === 'AMBIL_ANTAR_PAKET';
 
   const lines = [
     'HALO ADMIN TRIPKITA',
@@ -179,11 +191,11 @@ export function buildWhatsAppMessage(
     'Saya ingin melakukan booking kendaraan.',
     '',
     ...(bookingCode ? [`Kode Booking: ${bookingCode}`] : []),
-    `Jenis Perjalanan: ${tripLabel}`,
+    `Jenis Layanan: ${tripLabel}`,
     `Nama: ${data.nama.trim()}`,
     `Nomor WhatsApp: ${data.whatsapp.trim()}`,
-    `Penjemputan: ${data.penjemputan.trim()}`,
-    `Tujuan: ${data.tujuan.trim()}`,
+    `${isPackage ? 'Lokasi Ambil Paket' : 'Penjemputan'}: ${data.penjemputan.trim()}`,
+    `${isPackage ? 'Lokasi Antar Paket' : 'Tujuan'}: ${data.tujuan.trim()}`,
   ];
 
   if (routeMetrics && routeMetrics.distanceMeters > 0) {
@@ -194,15 +206,21 @@ export function buildWhatsAppMessage(
     );
   }
 
-  lines.push(
-    `Tanggal: ${formattedDate}`,
-    `Jam: ${data.jam.trim()}`,
-    `Jumlah penumpang: ${data.penumpang.trim()} orang`
-  );
+  lines.push(`Tanggal: ${formattedDate}`, `Jam: ${data.jam.trim()}`);
 
-  const extraLines = buildTripDetailsSummaryLines(data);
-  if (extraLines.length > 0) {
-    lines.push(...extraLines);
+  if (!isPackage) {
+    lines.push(`Jumlah penumpang: ${data.penumpang.trim()} orang`);
+  }
+
+  if (
+    data.jenisPerjalanan === 'CARTER' ||
+    data.jenisPerjalanan === 'RENTAL_SOPIR'
+  ) {
+    lines.push(`Durasi Pemakaian: ${data.durasiPemakaian.trim() || '-'}`);
+  }
+
+  if (isPackage && data.deskripsiPaket.trim()) {
+    lines.push(`Detail Paket & Penerima: ${data.deskripsiPaket.trim()}`);
   }
 
   lines.push(
@@ -271,6 +289,7 @@ export type AssignmentStatus =
 export type CashPaymentStatus = 'BELUM_DIBAYAR' | 'PERLU_VERIFIKASI' | 'DIBAYAR';
 
 export interface TripDetailsPayload {
+  packageDetails?: string | null;
   waitDuration?: string | null;
   waitMode?: WaitMode | null;
   estimatedEndDate?: string | null;
